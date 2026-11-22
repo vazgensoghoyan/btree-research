@@ -20,3 +20,9 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
         -Wpedantic
     )
 endif()
+
+include(CTest)
+
+if (BUILD_TESTING)
+    add_subdirectory(tests)
+endif()
