@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.20)
 project(b_tree LANGUAGES CXX)
 
 add_executable(b_tree
-    main.cpp
+    src/main.cpp
 )
 
 target_compile_features(b_tree PRIVATE cxx_std_20)
