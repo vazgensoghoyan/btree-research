@@ -22,17 +22,17 @@ class BasicBTree
     friend Base;
 
 public:
-    BasicBTree() = default;
+    BasicBTree();
 
 private:
-    static constexpr std::size_t s_min_degree = K;
-    static constexpr std::size_t s_max_degree = 2 * K;
-
     struct Node {
-        bool leaf;
-        std::size_t key_count;
-        Key keys[s_max_degree - 1];
-        std::unique_ptr<Node> children[s_max_degree];
+        bool is_leaf = true;
+        // key_count + 1 == degree
+        // for root: 0 <= degree <= 2*K
+        // for other nodes: K <= degree <= 2*K
+        std::size_t key_count = 0;
+        Key keys[2 * K - 1] = {};
+        std::unique_ptr<Node> children[2 * K] = {nullptr};
     };
 
 private:
@@ -42,13 +42,16 @@ private:
     bool insert_impl(Key key);
 
     // helpers
+    bool is_node_full(Node& node);
     std::size_t lower_bound_in_node(const Node& node, Key key) const;
     void insert_key_at(Node& node, std::size_t index, Key key);
+    void insert_in_node(Node& node, std::size_t index, Key key, std::unique_ptr<Node> right_child);
+    void split_full_node(Node& parent, std::size_t child_index);
 
 private:
-    std::unique_ptr<Node> m_root = nullptr;
-    std::size_t m_size = 0;
-    Compare m_compare{};
+    std::unique_ptr<Node> m_root;
+    std::size_t m_size;
+    Compare m_compare;
 };
 
 } // namespace iheay
