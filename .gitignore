@@ -1,0 +1,34 @@
+# CMake build directories
+/build/
+/build-*/
+/cmake-build-*/
+
+# CMake generated files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+CTestTestfile.cmake
+Makefile
+compile_commands.json
+install_manifest.txt
+
+# Native build output
+*.o
+*.obj
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+
+# Compiler and tooling caches
+.cache/
+.clangd/
+.ninja_deps
+.ninja_log
+
+# Editor temporary files
+*.swp
+*.swo
+*~
+.DS_Store
