@@ -26,12 +26,39 @@ bool BasicBTree<Key, K, Compare>::contains_impl(Key key) const {
 }
 
 template <BTreeKey Key, std::size_t K, class Compare>
-bool BasicBTree<Key, K, Compare>::insert_impl(Key key) try {
-    std::size_t index = lower_bound_in_node(*m_root, key);
-    insert_key_at(*m_root, index, key);
+bool BasicBTree<Key, K, Compare>::insert_impl(Key key) {
+    if (is_node_full(*m_root)) {
+        std::unique_ptr<Node> new_root = std::make_unique<Node>(Node {
+            .is_leaf = static_cast<bool>(m_root),
+            .key_count = 0,
+        });
+        new_root->children[0] = std::move(m_root);
+        m_root = std::move(new_root);
+
+        split_full_node(*m_root, 0);
+    }
+
+    Node* curr_node = m_root.get();
+
+    while (!curr_node->is_leaf) {
+        std::size_t child_index = lower_bound_in_node(*curr_node, key);
+        auto& child_ptr = curr_node->children[child_index];
+
+        if (is_node_full(*child_ptr)) {
+            split_full_node(*curr_node, child_index);
+            continue; // try again
+        }
+
+        curr_node = child_ptr.get();
+    }
+
+    // curr node is the needed not full leaf
+    std::size_t key_index = lower_bound_in_node(*curr_node, key);
+    insert_key_at(*curr_node, key_index, key);
+
+    ++m_size;
+
     return true;
-} catch (...) {
-    return false;
 }
 
 // HELPERS
