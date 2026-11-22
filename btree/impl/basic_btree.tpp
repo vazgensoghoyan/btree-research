@@ -44,7 +44,7 @@ template <BTreeKey Key, std::size_t K>
 bool BasicBTree<Key, K>::insert_impl(Key key) {
     if (is_node_full(*m_root)) {
         std::unique_ptr<Node> new_root = std::make_unique<Node>(Node {
-            .is_leaf = static_cast<bool>(m_root),
+            .is_leaf = false,
             .key_count = 0,
         });
         new_root->children[0] = std::move(m_root);
