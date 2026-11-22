@@ -32,3 +32,6 @@ install_manifest.txt
 *.swo
 *~
 .DS_Store
+
+# VS Code workspace-local state
+.vscode/

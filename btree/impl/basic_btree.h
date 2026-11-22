@@ -8,16 +8,11 @@
 
 namespace iheay {
 
-template <BTreeKey Key,
-          std::size_t K = 4,
-          class Compare = std::less<>>
+template <BTreeKey Key, std::size_t K = 4>
 class BasicBTree
-    : public BTreeBase<
-        BasicBTree<Key, K, Compare>,
-        Key> {
-    using Base = BTreeBase<
-        BasicBTree<Key, K, Compare>,
-        Key>;
+    : public BTreeBase<BasicBTree<Key, K>, Key> {
+
+    using Base = BTreeBase<BasicBTree<Key, K>,Key>;
 
     friend Base;
 
@@ -51,7 +46,6 @@ private:
 private:
     std::unique_ptr<Node> m_root;
     std::size_t m_size;
-    Compare m_compare;
 };
 
 } // namespace iheay
