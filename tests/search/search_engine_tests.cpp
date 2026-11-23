@@ -3,9 +3,13 @@
 #include "btree/search/simd_search.h"
 
 #include <array>
+#include <algorithm>
 #include <cstddef>
+#include <limits>
+#include <random>
 #include <span>
 #include <tuple>
+#include <vector>
 
 #include <gtest/gtest.h>
 
@@ -86,6 +90,40 @@ TYPED_TEST(SearchEngineTest, DuplicateKeysReturnFirstEqualPosition) {
         std::tuple{23, std::size_t{12}}
     };
     ExpectLowerBounds(TypeParam{}, keys, cases);
+}
+
+TYPED_TEST(SearchEngineTest, MatchesStdLowerBoundOnReproducibleRandomInputs) {
+    std::mt19937 generator{0x5EED};
+    std::uniform_int_distribution<int> value{-50, 50};
+    constexpr std::array<std::size_t, 15> sizes{
+        0, 1, 2, 3, 7, 8, 9, 15, 16, 17, 31, 32, 33, 64, 127};
+
+    for (std::size_t size : sizes) {
+        for (int sample = 0; sample < 40; ++sample) {
+            std::vector<int> keys(size);
+            for (int& key : keys) {
+                key = value(generator);
+            }
+            std::sort(keys.begin(), keys.end());
+
+            const std::span<const int> view{keys};
+            const auto check_query = [&](int query) {
+                const auto expected = static_cast<std::size_t>(
+                    std::lower_bound(keys.begin(), keys.end(), query) - keys.begin());
+                EXPECT_EQ(TypeParam{}(view, query), expected)
+                    << "size=" << size << ", sample=" << sample << ", query=" << query;
+            };
+
+            check_query(std::numeric_limits<int>::min());
+            check_query(std::numeric_limits<int>::max());
+            for (int key : keys) {
+                check_query(key);
+            }
+            for (int query = 0; query < 30; ++query) {
+                check_query(value(generator));
+            }
+        }
+    }
 }
 
 } // namespace

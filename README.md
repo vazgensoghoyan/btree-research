@@ -14,8 +14,11 @@ to build the playground without tests.
 
 ## Benchmarks
 
-Configure a separate Release build with benchmarks enabled, then build and run
-the benchmark executable:
+The current suite compares lower-bound search engines on sorted `int` arrays.
+See [benchmarks/README.md](benchmarks/README.md) for the workload, result format,
+comparison commands, and compiler optimization experiments.
+
+Build and run all cases:
 
 ```sh
 cmake -S . -B build-benchmarks \
@@ -27,11 +30,11 @@ cmake --build build-benchmarks --target b_tree_benchmarks
 ```
 
 Google Benchmark is found as an installed package when available; otherwise,
-CMake fetches Google Benchmark v1.9.4. Run selected benchmarks or save results
-as JSON with:
+CMake fetches Google Benchmark v1.9.4.
 
 ```sh
-./build-benchmarks/benchmarks/b_tree_benchmarks --benchmark_filter=Example
+./build-benchmarks/benchmarks/b_tree_benchmarks --benchmark_list_tests
 ./build-benchmarks/benchmarks/b_tree_benchmarks \
-  --benchmark_out=benchmark-results.json --benchmark_out_format=json
+  --benchmark_repetitions=5 \
+  --benchmark_out=build-benchmarks/results.json --benchmark_out_format=json
 ```
