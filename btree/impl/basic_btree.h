@@ -31,12 +31,13 @@ namespace iheay {
  */
 
 template <BTreeKey Key,
-          std::size_t K = 8,
-          search::LowerBoundSearch<Key> Search = search::LinearSearch>
+          std::size_t K = 16,
+          search::LowerBoundSearch<Key> Search = search::LinearSearch,
+          bool OptimizationFlag = false>
 class BasicBTree
-    : public BTreeBase<BasicBTree<Key, K, Search>, Key> {
+    : public BTreeBase<BasicBTree<Key, K, Search, OptimizationFlag>, Key> {
 
-    using Base = BTreeBase<BasicBTree<Key, K, Search>,Key>;
+    using Base = BTreeBase<BasicBTree<Key, K, Search, OptimizationFlag>,Key>;
 
     friend Base;
 
@@ -66,6 +67,7 @@ private:
 
     // helpers
     static bool is_node_full(const Node& node) noexcept;
+    void split_root_if_full();
     std::size_t lower_bound_in_node(const Node& node, Key key) const;
     void insert_key_at(Node& node, std::size_t index, Key key);
     void insert_in_node(Node& node, std::size_t index, Key key, std::unique_ptr<Node> right_child);
