@@ -8,11 +8,30 @@
 #include <cstddef>
 #include <functional>
 #include <memory>
+#include <span>
 
 namespace iheay {
 
+/*
+ * Invariants of our BasicBTree
+ *
+ * - Keys in each node are strictly increasing
+ * - Every leaf is at the same depth
+ *
+ * - for root: 0 <= node.key_count <= 2*K - 1
+ * - for other nodes: K-1 <= node.key_count <= 2*K - 1
+ *
+ * - any node except root has 1 parent
+ * - by degree I mean child count:
+ *
+ * - for leaves: degree == 0
+ * - for other nodes: degree == key_count + 1
+ *
+ * - For any separator key[i], keys in child[i] are smaller, while keys in child[i + 1] are greater.
+ */
+
 template <BTreeKey Key,
-          std::size_t K = 4,
+          std::size_t K = 8,
           search::LowerBoundSearch<Key> Search = search::LinearSearch>
 class BasicBTree
     : public BTreeBase<BasicBTree<Key, K, Search>, Key> {
@@ -24,12 +43,16 @@ class BasicBTree
 public:
     BasicBTree();
 
+    BasicBTree(const BasicBTree&) = delete;
+    BasicBTree& operator=(const BasicBTree&) = delete;
+    BasicBTree(BasicBTree&&) = delete;
+    BasicBTree& operator=(BasicBTree&&) = delete;
+
+    static_assert(K >= 2, "B-tree minimum degree must be at least 2");
+
 private:
     struct Node {
         bool is_leaf = true;
-        // key_count + 1 == degree
-        // for root: 0 <= degree <= 2*K
-        // for other nodes: K <= degree <= 2*K
         std::size_t key_count = 0;
         Key keys[2 * K - 1] = {};
         std::unique_ptr<Node> children[2 * K] = {nullptr};
@@ -42,7 +65,7 @@ private:
     bool insert_impl(Key key);
 
     // helpers
-    bool is_node_full(Node& node);
+    static bool is_node_full(const Node& node) noexcept;
     std::size_t lower_bound_in_node(const Node& node, Key key) const;
     void insert_key_at(Node& node, std::size_t index, Key key);
     void insert_in_node(Node& node, std::size_t index, Key key, std::unique_ptr<Node> right_child);

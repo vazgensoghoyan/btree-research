@@ -5,10 +5,9 @@
 
 #include <cstddef>
 #include <span>
-#include <cassert>
 
 #include <immintrin.h>
-#include <bits/stdc++.h>
+#include <type_traits>
 
 namespace iheay::search {
 
@@ -16,12 +15,10 @@ struct SimdSearch {
     template <class Key>
     std::size_t operator()(std::span<const Key> keys, const Key& key) const {
         if constexpr (std::is_same_v<Key, int>) {
-            assert(__builtin_cpu_supports("avx2"));
-            return search_avx2_int(keys, key);
-        } else {
-            LinearSearch engine{};
-            return engine(keys, key);
+            if (__builtin_cpu_supports("avx2"))
+                return search_avx2_int(keys, key);
         }
+        return LinearSearch{}(keys, key);
     }
 
 private:

@@ -22,7 +22,7 @@ std::size_t BasicBTree<Key, K, Search>::size_impl() const noexcept {
 
 template <BTreeKey Key, std::size_t K, search::LowerBoundSearch<Key> Search>
 bool BasicBTree<Key, K, Search>::contains_impl(Key key) const {
-    Node* curr_node = m_root.get();
+    const Node* curr_node = m_root.get();
 
     for (;;) {
         std::size_t index = lower_bound_in_node(*curr_node, key);
@@ -84,7 +84,7 @@ bool BasicBTree<Key, K, Search>::insert_impl(Key key) {
 // HELPERS
 
 template <BTreeKey Key, std::size_t K, search::LowerBoundSearch<Key> Search>
-bool BasicBTree<Key, K, Search>::is_node_full(Node& node) {
+/*static*/ bool BasicBTree<Key, K, Search>::is_node_full(const Node& node) noexcept {
     return node.key_count + 1 == 2 * K; // degree == 2K
 }
 

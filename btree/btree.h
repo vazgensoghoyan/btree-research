@@ -9,22 +9,22 @@ namespace iheay {
 
 template <class T>
 concept BTreeKey =
-    std::is_arithmetic_v<T> &&
+    std::is_integral_v<T> &&
     std::is_trivially_copyable_v<T> &&
     (sizeof(T) <= 8);
 
 template <class Impl, BTreeKey Key>
 class BTreeBase {
 public:
-    bool empty() const noexcept {
+    [[nodiscard]] bool empty() const noexcept {
         return size() == 0;
     }
 
-    std::size_t size() const noexcept {
+    [[nodiscard]] std::size_t size() const noexcept {
         return impl().size_impl();
     }
 
-    bool contains(Key key) const {
+    [[nodiscard]] bool contains(Key key) const {
         return impl().contains_impl(std::move(key));
     }
 
