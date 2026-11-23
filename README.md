@@ -14,39 +14,17 @@ to build the playground without tests.
 
 ## Benchmarks
 
-The current suite compares lower-bound search engines on sorted `int` arrays.
+The suite compares lower-bound search engines and whole-tree lookups across
+several B-tree node capacities, `std::set`, and `std::unordered_set`.
 See [benchmarks/README.md](benchmarks/README.md) for the workload, interactive
 HTML report, result comparisons, and compiler optimization experiments.
 
-Build and run all cases:
+Build, run, and generate the browsable report with one command:
 
 ```sh
-cmake -S . -B build-benchmarks \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DBUILD_TESTING=OFF \
-  -DBUILD_BENCHMARKS=ON
-cmake --build build-benchmarks --target b_tree_benchmarks
-./build-benchmarks/benchmarks/b_tree_benchmarks
+python3 benchmarks/run.py
 ```
 
-Google Benchmark is found as an installed package when available; otherwise,
-CMake fetches Google Benchmark v1.9.4.
-
-```sh
-./build-benchmarks/benchmarks/b_tree_benchmarks --benchmark_list_tests
-./build-benchmarks/benchmarks/b_tree_benchmarks \
-  --benchmark_repetitions=5 \
-  --benchmark_out=build-benchmarks/results.json --benchmark_out_format=json
-```
-
-Turn the saved JSON into an interactive page, then open the HTML file in your
-browser:
-
-```sh
-python3 benchmarks/report.py build-benchmarks/results.json \
-  -o build-benchmarks/report.html
-```
-
-The page has a chart and a table. Select hits or misses, and switch between
-result files when you generate a report from several JSON files. The chart
-plots median CPU time per lookup against key count; lower is faster.
+Open [benchmarks/report.html](benchmarks/report.html) for the generated chart
+and table. Run `python3 benchmarks/run.py --all-optimizations` to include
+`-O0` through `-O3` builds.

@@ -1,92 +1,50 @@
-# Search benchmarks
+# Benchmarks
 
-`b_tree_benchmarks` currently measures lower-bound lookup within a sorted array.
-It compares `LinearSearch`, `BinarySearch`, `SimdSearch`, and `std::lower_bound`.
-It does **not** measure B-tree traversal or insertion yet.
-
-Each engine gets the same sorted `int` keys and the same 4,096 queries. Cases
-use 4, 8, 16, 32, 64, or 128 keys. Keys are even numbers; hit queries are
-present keys, while miss queries are odd numbers. A fixed random seed chooses
-query positions. Setup happens before timing; each timed iteration performs one
-lookup and consumes its result. Names have the form `engine/hit-or-miss/key-count`,
-for example `simd/miss/32`.
-
-`SimdSearch` currently uses AVX2 for `int`; run these benchmarks on a CPU with
-AVX2 support. The benchmark executable uses Google Benchmark's CPU time by
-default. Results are nanoseconds per lookup when the table reports `ns`.
-
-## Run and save results
-
-From the repository root:
+Run from the repository root:
 
 ```sh
-cmake -S . -B build-benchmarks \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DBUILD_TESTING=OFF \
-  -DBUILD_BENCHMARKS=ON
-cmake --build build-benchmarks --target b_tree_benchmarks
-./build-benchmarks/benchmarks/b_tree_benchmarks --benchmark_list_tests
-./build-benchmarks/benchmarks/b_tree_benchmarks \
-  --benchmark_repetitions=5 \
-  --benchmark_out=build-benchmarks/results.json \
-  --benchmark_out_format=json
+python3 benchmarks/run.py
 ```
 
-To run a subset, add a filter such as `--benchmark_filter='simd/(hit|miss)/32$'`.
-Google Benchmark prints each run and summary statistics for repeated runs. In
-the JSON, `cpu_time` is the measured time per iteration and `time_unit` gives
-its unit. Look at the median and spread across repetitions, not just one run.
+The script configures a Release build at `-O3`, builds both benchmark executables,
+runs every case with three repetitions, saves raw JSON in `build-bench-o3/`, and
+writes [report.html](report.html). Open that file directly in a browser. It is a
+standalone page, so it also works from a GitHub checkout. Commit the generated
+file when you want others to download or open the latest results. GitHub's
+repository file viewer shows HTML source; an interactive web link requires
+hosting the file, for example with GitHub Pages.
 
-To compare two saved JSON files, use Google Benchmark's comparison tool:
+Use `python3 benchmarks/run.py --all-optimizations` to run `-O0`, `-O1`, `-O2`,
+and `-O3` in separate build directories. `--optimization O2` runs one selected
+level. `--repetitions 5 --min-time 0.5s` requests longer measurements. The
+script uses the same `-DNDEBUG` setting for every optimization level.
+
+The report has **Node search** and **Whole-tree lookup** views. Select the
+build and hit/miss workload, then use **Chart** or **Table** to inspect median
+CPU nanoseconds per lookup and individual runs. Lower is faster. Raw JSON can
+be regenerated into a report without benchmarking again:
 
 ```sh
-python3 build-benchmarks/_deps/googlebenchmark-src/tools/compare.py benchmarks \
-  build-benchmarks/baseline.json build-benchmarks/contender.json
+python3 benchmarks/report.py build-bench-o3/search.json build-bench-o3/tree.json \
+  -o benchmarks/report.html
 ```
 
-The comparison pairs cases by benchmark name. Keep the workload, key count,
-compiler, and machine the same when interpreting a speed ratio. For comparisons
-across optimization levels, record the flags and label each result file.
+## What is measured
 
-For a local interactive chart and table, generate a standalone HTML report:
+**Node search** compares linear, binary, SIMD, and `std::lower_bound` searches
+on sorted `int` arrays of 4 to 128 keys. Each iteration searches for one query.
 
-```sh
-python3 benchmarks/report.py build-benchmarks/results.json \
-  -o build-benchmarks/report.html
-```
+**Whole-tree lookup** compares `BasicBTree<int, K>` with `K` of 4, 16, and 64,
+plus `std::set<int>` and `std::unordered_set<int>`. Each container is filled
+with the same shuffled even keys before timing. The timed operation is one
+`contains` call. Hit queries are present keys; miss queries are odd numbers.
+Tree sizes are 1,000, 10,000, and 100,000 keys.
 
-Open `build-benchmarks/report.html` in a browser. Use the **Chart**, **Table**,
-and **How to read** buttons to change views; select hits or misses at the top.
-The chart shows median CPU time by key count, with one line per engine. The
-table also shows the individual repeated measurements. The report needs no
-server or internet connection.
+Both suites use reproducible query sequences. The current B-tree still uses its
+built-in linear node search; the SIMD engine is only in the node-search suite.
+`SimdSearch` requires AVX2 support. These measurements are specific to the
+machine, compiler, flags, and workload. Small differences deserve repeated runs
+under stable CPU conditions.
 
-You can pass several JSON files to the same command, for example results from
-different optimization levels. The **Result file** selector switches between
-them; each file is labeled by its parent directory and filename.
-
-## Compare optimization levels
-
-Use a separate build directory for each level. For example:
-
-```sh
-cmake -S . -B build-bench-o2 \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DCMAKE_CXX_FLAGS_RELEASE='-O2 -DNDEBUG' \
-  -DBUILD_TESTING=OFF -DBUILD_BENCHMARKS=ON
-cmake --build build-bench-o2 --target b_tree_benchmarks
-./build-bench-o2/benchmarks/b_tree_benchmarks \
-  --benchmark_repetitions=5 \
-  --benchmark_out=build-bench-o2/results.json \
-  --benchmark_out_format=json
-```
-
-Repeat with `-O0`, `-O1`, or `-O3`, changing the directory name and flag together.
-Setting `CMAKE_CXX_FLAGS_RELEASE` explicitly avoids mixing CMake's default
-Release optimization flag with the requested one. Keep `-DNDEBUG` consistent
-across builds. The JSON files can be compared with the command above.
-
-Run benchmarks on an otherwise idle machine and repeat them if differences are
-small. These timings include query selection and loop overhead, which matter
-most for the shortest arrays. They show relative search costs under this
-workload, not whole-tree performance.
+When adding another benchmark executable, register its target in `TARGETS` in
+`run.py` and teach `report.py` how to group its result names.

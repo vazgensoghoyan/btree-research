@@ -13,6 +13,7 @@ TIME_TO_NS = {"ns": 1, "us": 1_000, "ms": 1_000_000, "s": 1_000_000_000}
 def read_results(path: Path) -> list[dict]:
     document = json.loads(path.read_text(encoding="utf-8"))
     grouped: dict[str, list[float]] = {}
+    suite = "tree" if path.stem == "tree" else "search"
 
     for entry in document["benchmarks"]:
         if entry.get("run_type") != "iteration":
@@ -28,7 +29,8 @@ def read_results(path: Path) -> list[dict]:
         if len(parts) != 3 or parts[1] not in {"hit", "miss"}:
             continue
         rows.append({
-            "build": f"{path.parent.name}/{path.stem}",
+            "build": path.parent.name,
+            "suite": suite,
             "engine": parts[0],
             "workload": parts[1],
             "size": int(parts[2]),
@@ -46,7 +48,7 @@ def main() -> None:
 
     rows = [row for path in args.results for row in read_results(path)]
     if not rows:
-        parser.error("no search benchmark results found")
+        parser.error("no supported benchmark results found")
 
     data = json.dumps(rows).replace("<", "\\u003c")
     html = HTML.replace("__DATA__", data)
@@ -58,7 +60,7 @@ HTML = """<!doctype html>
 <html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Search benchmark report</title>
+<title>B-tree benchmark report</title>
 <style>
   body { font: 16px system-ui, sans-serif; margin: 0; color: #18212f; background: #f6f8fb; }
   main { max-width: 1050px; margin: auto; padding: 32px 20px; }
@@ -80,7 +82,7 @@ HTML = """<!doctype html>
   .legend span::before { content: '●'; color: var(--color); margin-right: 5px; }
 </style>
 <main>
-  <h1>Search benchmark report</h1>
+  <h1>B-tree benchmark report</h1>
   <p>Median CPU nanoseconds per lookup. Lower is faster.</p>
   <nav>
     <button class="active" data-tab="chart">Chart</button>
@@ -88,21 +90,21 @@ HTML = """<!doctype html>
     <button data-tab="about">How to read</button>
   </nav>
   <div class="controls">
-    <label>Result file<select id="build"></select></label>
+    <label>Suite<select id="suite"><option value="search">Node search</option><option value="tree">Whole-tree lookup</option></select></label>
+    <label>Build<select id="build"></select></label>
     <label>Workload<select id="workload"><option>hit</option><option>miss</option></select></label>
   </div>
   <section id="chart"><h2>Time by key count</h2><svg id="plot" role="img" aria-label="Lookup time by key count"></svg><div class="legend" id="legend"></div></section>
   <section id="table" class="hidden"><h2>Measurements</h2><div class="table-wrap"><table><thead><tr><th>Engine</th><th>Keys</th><th>Median ns</th><th>Runs</th></tr></thead><tbody id="rows"></tbody></table></div></section>
-  <section id="about" class="hidden"><h2>How to read this report</h2><p>Each point is the median CPU time from the repeated runs in one JSON file. The table shows every measured run for that case. Compare engines at the same key count and workload. Build flags, CPU conditions, and query distribution affect the result. These are node-search timings, not whole-tree timings.</p></section>
+  <section id="about" class="hidden"><h2>How to read this report</h2><p>Each point is the median CPU time from repeated runs. The table shows every measured run. Compare containers or engines at the same key count, workload, and build. Node search and whole-tree lookup are separate suites; their times measure different operations. Build flags, CPU conditions, and query distribution affect results.</p></section>
 </main>
 <script>
 const data = __DATA__;
 const colors = ['#2454b5', '#c65327', '#19836d', '#8b45a1', '#b58320', '#555'];
 const build = document.querySelector('#build');
+const suite = document.querySelector('#suite');
 const workload = document.querySelector('#workload');
-for (const name of [...new Set(data.map(row => row.build))]) {
-  build.add(new Option(name, name));
-}
+if (!data.some(row => row.suite === suite.value)) suite.value = data[0].suite;
 document.querySelectorAll('nav button').forEach(button => {
   button.addEventListener('click', () => {
     document.querySelectorAll('nav button').forEach(item => item.classList.toggle('active', item === button));
@@ -110,7 +112,11 @@ document.querySelectorAll('nav button').forEach(button => {
   });
 });
 function render() {
-  const rows = data.filter(row => row.build === build.value && row.workload === workload.value);
+  const builds = [...new Set(data.filter(row => row.suite === suite.value).map(row => row.build))];
+  const selectedBuild = build.value;
+  build.replaceChildren(...builds.map(name => new Option(name, name)));
+  build.value = builds.includes(selectedBuild) ? selectedBuild : builds[0];
+  const rows = data.filter(row => row.suite === suite.value && row.build === build.value && row.workload === workload.value);
   rows.sort((a, b) => a.size - b.size || a.engine.localeCompare(b.engine));
   document.querySelector('#rows').innerHTML = rows.map(row =>
     `<tr><td>${row.engine}</td><td>${row.size}</td><td>${row.median_ns.toFixed(2)}</td><td>${row.runs_ns.map(n => n.toFixed(2)).join(', ')}</td></tr>`
@@ -137,6 +143,7 @@ function render() {
     `<span style="--color:${colors[index % colors.length]}">${engine}</span>`).join('');
 }
 build.addEventListener('change', render);
+suite.addEventListener('change', render);
 workload.addEventListener('change', render);
 render();
 </script>
