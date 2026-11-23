@@ -28,3 +28,5 @@ target_link_libraries(b_tree_tests PRIVATE GTest::gtest_main)
 # Register each GoogleTest case with CTest.
 include(GoogleTest)
 gtest_discover_tests(b_tree_tests)
+
+add_subdirectory(search)

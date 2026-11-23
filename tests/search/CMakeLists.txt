@@ -1,0 +1,8 @@
+add_executable(search_engine_tests search_engine_tests.cpp)
+
+target_compile_features(search_engine_tests PRIVATE cxx_std_20)
+target_include_directories(search_engine_tests PRIVATE ${PROJECT_SOURCE_DIR})
+target_link_libraries(search_engine_tests PRIVATE GTest::gtest_main)
+
+include(GoogleTest)
+gtest_discover_tests(search_engine_tests)
