@@ -21,13 +21,13 @@ class SearchEngineTest : public ::testing::Test {};
 
 TYPED_TEST_SUITE(SearchEngineTest, SearchEngines);
 
-template <class Engine, class Key, std::size_t N>
+template <class Engine, class Key, std::size_t N, std::size_t M>
 void ExpectLowerBounds(const Engine& engine,
                        const std::array<Key, N>& keys,
-                       const std::array<std::tuple<Key, std::size_t>, N * 2 + 1>& cases) {
+                       const std::array<std::tuple<Key, std::size_t>, M>& cases) {
     for (const auto& [query, expected] : cases) {
         EXPECT_EQ(engine(std::span<const Key>{keys}, query), expected)
-            << "query=" << query;
+            << "query=" << query << ", key_count=" << keys.size();
     }
 }
 
@@ -36,33 +36,56 @@ TYPED_TEST(SearchEngineTest, EmptyInputReturnsZero) {
     EXPECT_EQ(TypeParam{}(std::span<const int>{keys}, 42), 0U);
 }
 
-TYPED_TEST(SearchEngineTest, FindsLowerBoundAcrossSortedKeys) {
-    constexpr std::array keys{1, 3, 5, 7};
+TYPED_TEST(SearchEngineTest, HandlesShortInput) {
+    constexpr std::array<int, 4> keys{10, 20, 30, 40};
     constexpr std::array cases{
-        std::tuple{0, std::size_t{0}},
-        std::tuple{1, std::size_t{0}},
-        std::tuple{2, std::size_t{1}},
-        std::tuple{3, std::size_t{1}},
-        std::tuple{4, std::size_t{2}},
-        std::tuple{6, std::size_t{3}},
-        std::tuple{7, std::size_t{3}},
-        std::tuple{8, std::size_t{4}},
-        std::tuple{9, std::size_t{4}}
+        std::tuple{5, std::size_t{0}},
+        std::tuple{10, std::size_t{0}},
+        std::tuple{25, std::size_t{2}},
+        std::tuple{40, std::size_t{3}},
+        std::tuple{50, std::size_t{4}}
     };
+    ExpectLowerBounds(TypeParam{}, keys, cases);
+}
 
+TYPED_TEST(SearchEngineTest, HandlesOneFullVector) {
+    constexpr std::array<int, 8> keys{10, 20, 30, 40, 50, 60, 70, 80};
+    constexpr std::array cases{
+        std::tuple{5, std::size_t{0}},
+        std::tuple{10, std::size_t{0}},
+        std::tuple{15, std::size_t{1}},
+        std::tuple{20, std::size_t{1}},
+        std::tuple{75, std::size_t{7}},
+        std::tuple{80, std::size_t{7}},
+        std::tuple{85, std::size_t{8}}
+    };
+    ExpectLowerBounds(TypeParam{}, keys, cases);
+}
+
+TYPED_TEST(SearchEngineTest, HandlesVectorAndScalarTail) {
+    constexpr std::array<int, 11> keys{10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110};
+    constexpr std::array cases{
+        std::tuple{75, std::size_t{7}},
+        std::tuple{80, std::size_t{7}},
+        std::tuple{85, std::size_t{8}},
+        std::tuple{90, std::size_t{8}},
+        std::tuple{95, std::size_t{9}},
+        std::tuple{110, std::size_t{10}},
+        std::tuple{115, std::size_t{11}}
+    };
     ExpectLowerBounds(TypeParam{}, keys, cases);
 }
 
 TYPED_TEST(SearchEngineTest, DuplicateKeysReturnFirstEqualPosition) {
-    constexpr std::array keys{1, 3, 3, 3, 8};
+    constexpr std::array<int, 12> keys{1, 3, 3, 3, 8, 10, 12, 14, 16, 18, 20, 22};
     constexpr std::array cases{
         std::tuple{3, std::size_t{1}},
-        std::tuple{4, std::size_t{4}}
+        std::tuple{4, std::size_t{4}},
+        std::tuple{14, std::size_t{7}},
+        std::tuple{15, std::size_t{8}},
+        std::tuple{23, std::size_t{12}}
     };
-
-    for (const auto& [query, expected] : cases) {
-        EXPECT_EQ(TypeParam{}(std::span<const int>{keys}, query), expected);
-    }
+    ExpectLowerBounds(TypeParam{}, keys, cases);
 }
 
 } // namespace
