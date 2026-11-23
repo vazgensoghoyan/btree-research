@@ -4,7 +4,7 @@
 #include <cstddef>
 #include <span>
 
-namespace iheay {
+namespace iheay::search {
 
 /*
  * A search engine accepts sorted keys and returns the insertion position
@@ -19,4 +19,4 @@ concept LowerBoundSearch =
         { engine(keys, key) } -> std::same_as<std::size_t>;
     };
 
-} // namespace iheay
+} // namespace iheay::search

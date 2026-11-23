@@ -1,4 +1,7 @@
 #include "btree/impl/basic_btree.h"
+#include "btree/search/binary_search.h"
+#include "btree/search/linear_search.h"
+#include "btree/search/simd_search.h"
 
 #include <benchmark/benchmark.h>
 
@@ -65,9 +68,15 @@ void Register(const char* name) {
 } // namespace
 
 int main(int argc, char** argv) {
-    Register<iheay::BasicBTree<int, 4>>("btree_k4");
-    Register<iheay::BasicBTree<int, 16>>("btree_k16");
-    Register<iheay::BasicBTree<int, 64>>("btree_k64");
+    Register<iheay::BasicBTree<int, 2, iheay::search::LinearSearch>>("btree_k2_linear");
+    Register<iheay::BasicBTree<int, 2, iheay::search::BinarySearch>>("btree_k2_binary");
+    Register<iheay::BasicBTree<int, 2, iheay::search::SimdSearch>>("btree_k2_simd");
+    Register<iheay::BasicBTree<int, 4, iheay::search::LinearSearch>>("btree_k4_linear");
+    Register<iheay::BasicBTree<int, 4, iheay::search::BinarySearch>>("btree_k4_binary");
+    Register<iheay::BasicBTree<int, 4, iheay::search::SimdSearch>>("btree_k4_simd");
+    Register<iheay::BasicBTree<int, 16, iheay::search::LinearSearch>>("btree_k16_linear");
+    Register<iheay::BasicBTree<int, 16, iheay::search::BinarySearch>>("btree_k16_binary");
+    Register<iheay::BasicBTree<int, 16, iheay::search::SimdSearch>>("btree_k16_simd");
     Register<std::set<int>>("std_set");
     Register<std::unordered_set<int>>("std_unordered_set");
 

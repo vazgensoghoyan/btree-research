@@ -3,24 +3,25 @@
 
 namespace iheay {
 
-template <BTreeKey Key, std::size_t K>
-BasicBTree<Key, K>::BasicBTree()
+template <BTreeKey Key, std::size_t K, search::LowerBoundSearch<Key> Search>
+BasicBTree<Key, K, Search>::BasicBTree()
     : m_root(std::make_unique<Node>(
         Node {
             .is_leaf = true,
         }))
     , m_size(0)
+    , m_search({})
 {}
 
 // CRTP CONTRACT METHODS
 
-template <BTreeKey Key, std::size_t K>
-std::size_t BasicBTree<Key, K>::size_impl() const noexcept {
+template <BTreeKey Key, std::size_t K, search::LowerBoundSearch<Key> Search>
+std::size_t BasicBTree<Key, K, Search>::size_impl() const noexcept {
     return m_size;
 }
 
-template <BTreeKey Key, std::size_t K>
-bool BasicBTree<Key, K>::contains_impl(Key key) const {
+template <BTreeKey Key, std::size_t K, search::LowerBoundSearch<Key> Search>
+bool BasicBTree<Key, K, Search>::contains_impl(Key key) const {
     Node* curr_node = m_root.get();
 
     for (;;) {
@@ -40,8 +41,8 @@ bool BasicBTree<Key, K>::contains_impl(Key key) const {
     return false;
 }
 
-template <BTreeKey Key, std::size_t K>
-bool BasicBTree<Key, K>::insert_impl(Key key) {
+template <BTreeKey Key, std::size_t K, search::LowerBoundSearch<Key> Search>
+bool BasicBTree<Key, K, Search>::insert_impl(Key key) {
     if (is_node_full(*m_root)) {
         std::unique_ptr<Node> new_root = std::make_unique<Node>(Node {
             .is_leaf = false,
@@ -82,23 +83,19 @@ bool BasicBTree<Key, K>::insert_impl(Key key) {
 
 // HELPERS
 
-template <BTreeKey Key, std::size_t K>
-bool BasicBTree<Key, K>::is_node_full(Node& node) {
+template <BTreeKey Key, std::size_t K, search::LowerBoundSearch<Key> Search>
+bool BasicBTree<Key, K, Search>::is_node_full(Node& node) {
     return node.key_count + 1 == 2 * K; // degree == 2K
 }
 
-template <BTreeKey Key, std::size_t K>
-std::size_t BasicBTree<Key, K>::lower_bound_in_node(const Node& node, Key key) const {
-    for (std::size_t i = 0; i < node.key_count; ++i) {
-        if (key <= node.keys[i]) {
-            return i;
-        }
-    }
-    return node.key_count;
+template <BTreeKey Key, std::size_t K, search::LowerBoundSearch<Key> Search>
+std::size_t BasicBTree<Key, K, Search>::lower_bound_in_node(const Node& node, Key key) const {
+    std::span<const Key> keys_view{node.keys, node.key_count};
+    return m_search(keys_view, key);
 }
 
-template <BTreeKey Key, std::size_t K>
-void BasicBTree<Key, K>::insert_key_at(Node& node, std::size_t index, Key key) {
+template <BTreeKey Key, std::size_t K, search::LowerBoundSearch<Key> Search>
+void BasicBTree<Key, K, Search>::insert_key_at(Node& node, std::size_t index, Key key) {
     assert(!is_node_full(node));
     assert(index <= node.key_count);
 
@@ -110,8 +107,8 @@ void BasicBTree<Key, K>::insert_key_at(Node& node, std::size_t index, Key key) {
     node.key_count++;
 }
 
-template <BTreeKey Key, std::size_t K>
-void BasicBTree<Key, K>::insert_in_node(Node& node, std::size_t index, Key key, std::unique_ptr<Node> right_child) {
+template <BTreeKey Key, std::size_t K, search::LowerBoundSearch<Key> Search>
+void BasicBTree<Key, K, Search>::insert_in_node(Node& node, std::size_t index, Key key, std::unique_ptr<Node> right_child) {
     insert_key_at(node, index, key);
     std::move_backward(node.children + index + 1,
                        node.children + node.key_count,
@@ -119,8 +116,8 @@ void BasicBTree<Key, K>::insert_in_node(Node& node, std::size_t index, Key key, 
     node.children[index + 1] = std::move(right_child);
 }
 
-template <BTreeKey Key, std::size_t K>
-void BasicBTree<Key, K>::split_full_node(Node& parent, std::size_t child_index) {
+template <BTreeKey Key, std::size_t K, search::LowerBoundSearch<Key> Search>
+void BasicBTree<Key, K, Search>::split_full_node(Node& parent, std::size_t child_index) {
     assert(child_index <= parent.key_count);
     assert(!is_node_full(parent));
 

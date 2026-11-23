@@ -34,8 +34,9 @@ python3 benchmarks/scripts/report.py build-bench-o3/search.json build-bench-o3/t
 **Node search** compares linear, binary, SIMD, and `std::lower_bound` searches
 on sorted `int` arrays of 4 to 128 keys. Each iteration searches for one query.
 
-**Whole-tree lookup** compares `BasicBTree<int, K>` with `K` of 4, 16, and 64,
-plus `std::set<int>` and `std::unordered_set<int>`. Each container is filled
+**Whole-tree lookup** compares `BasicBTree<int, K, Search>` with `K` of 2, 4,
+and 16, using linear, binary, and SIMD node search, plus `std::set<int>` and
+`std::unordered_set<int>`. Each container is filled
 with the same shuffled even keys before timing. The timed operation is one
 `contains` call. Hit queries are present keys; miss queries are odd numbers.
 Tree sizes are 1,000, 10,000, and 100,000 keys.
