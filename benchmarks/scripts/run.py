@@ -7,8 +7,8 @@ import sys
 from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parent.parent
-REPORT = ROOT / "benchmarks" / "report.py"
+ROOT = Path(__file__).resolve().parents[2]
+REPORT = ROOT / "benchmarks" / "scripts" / "report.py"
 TARGETS = {"search": "b_tree_benchmarks", "tree": "whole_tree_benchmarks"}
 
 
@@ -51,7 +51,7 @@ def main() -> None:
                  f"--benchmark_out={output}", "--benchmark_out_format=json"])
             results.append(output)
 
-    report = ROOT / "benchmarks" / "report.html"
+    report = ROOT / "benchmarks" / "results" / "report.html"
     run([sys.executable, str(REPORT), *map(str, results), "-o", str(report)])
     print(f"Open {report.relative_to(ROOT)}", flush=True)
 

@@ -22,9 +22,9 @@ HTML report, result comparisons, and compiler optimization experiments.
 Build, run, and generate the browsable report with one command:
 
 ```sh
-python3 benchmarks/run.py
+python3 benchmarks/scripts/run.py
 ```
 
-Open [benchmarks/report.html](benchmarks/report.html) for the generated chart
-and table. Run `python3 benchmarks/run.py --all-optimizations` to include
+Open [benchmarks/results/report.html](benchmarks/results/report.html) for the generated chart
+and table. Run `python3 benchmarks/scripts/run.py --all-optimizations` to include
 `-O0` through `-O3` builds.

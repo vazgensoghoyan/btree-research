@@ -3,18 +3,18 @@
 Run from the repository root:
 
 ```sh
-python3 benchmarks/run.py
+python3 benchmarks/scripts/run.py
 ```
 
 The script configures a Release build at `-O3`, builds both benchmark executables,
 runs every case with three repetitions, saves raw JSON in `build-bench-o3/`, and
-writes [report.html](report.html). Open that file directly in a browser. It is a
+writes [results/report.html](results/report.html). Open that file directly in a browser. It is a
 standalone page, so it also works from a GitHub checkout. Commit the generated
 file when you want others to download or open the latest results. GitHub's
 repository file viewer shows HTML source; an interactive web link requires
 hosting the file, for example with GitHub Pages.
 
-Use `python3 benchmarks/run.py --all-optimizations` to run `-O0`, `-O1`, `-O2`,
+Use `python3 benchmarks/scripts/run.py --all-optimizations` to run `-O0`, `-O1`, `-O2`,
 and `-O3` in separate build directories. `--optimization O2` runs one selected
 level. `--repetitions 5 --min-time 0.5s` requests longer measurements. The
 script uses the same `-DNDEBUG` setting for every optimization level.
@@ -25,8 +25,8 @@ CPU nanoseconds per lookup and individual runs. Lower is faster. Raw JSON can
 be regenerated into a report without benchmarking again:
 
 ```sh
-python3 benchmarks/report.py build-bench-o3/search.json build-bench-o3/tree.json \
-  -o benchmarks/report.html
+python3 benchmarks/scripts/report.py build-bench-o3/search.json build-bench-o3/tree.json \
+  -o benchmarks/results/report.html
 ```
 
 ## What is measured
@@ -47,4 +47,4 @@ machine, compiler, flags, and workload. Small differences deserve repeated runs
 under stable CPU conditions.
 
 When adding another benchmark executable, register its target in `TARGETS` in
-`run.py` and teach `report.py` how to group its result names.
+`scripts/run.py` and teach `scripts/report.py` how to group its result names.
