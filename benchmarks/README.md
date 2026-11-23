@@ -48,6 +48,23 @@ The comparison pairs cases by benchmark name. Keep the workload, key count,
 compiler, and machine the same when interpreting a speed ratio. For comparisons
 across optimization levels, record the flags and label each result file.
 
+For a local interactive chart and table, generate a standalone HTML report:
+
+```sh
+python3 benchmarks/report.py build-benchmarks/results.json \
+  -o build-benchmarks/report.html
+```
+
+Open `build-benchmarks/report.html` in a browser. Use the **Chart**, **Table**,
+and **How to read** buttons to change views; select hits or misses at the top.
+The chart shows median CPU time by key count, with one line per engine. The
+table also shows the individual repeated measurements. The report needs no
+server or internet connection.
+
+You can pass several JSON files to the same command, for example results from
+different optimization levels. The **Result file** selector switches between
+them; each file is labeled by its parent directory and filename.
+
 ## Compare optimization levels
 
 Use a separate build directory for each level. For example:

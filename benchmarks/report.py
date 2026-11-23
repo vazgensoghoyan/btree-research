@@ -1,0 +1,148 @@
+#!/usr/bin/env python3
+"""Turn Google Benchmark JSON files into a standalone interactive report."""
+
+import argparse
+import json
+from pathlib import Path
+from statistics import median
+
+
+TIME_TO_NS = {"ns": 1, "us": 1_000, "ms": 1_000_000, "s": 1_000_000_000}
+
+
+def read_results(path: Path) -> list[dict]:
+    document = json.loads(path.read_text(encoding="utf-8"))
+    grouped: dict[str, list[float]] = {}
+
+    for entry in document["benchmarks"]:
+        if entry.get("run_type") != "iteration":
+            continue
+        name = entry["name"]
+        grouped.setdefault(name, []).append(
+            entry["cpu_time"] * TIME_TO_NS[entry["time_unit"]]
+        )
+
+    rows = []
+    for name, runs in grouped.items():
+        parts = name.split("/")
+        if len(parts) != 3 or parts[1] not in {"hit", "miss"}:
+            continue
+        rows.append({
+            "build": f"{path.parent.name}/{path.stem}",
+            "engine": parts[0],
+            "workload": parts[1],
+            "size": int(parts[2]),
+            "median_ns": median(runs),
+            "runs_ns": runs,
+        })
+    return rows
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("results", nargs="+", type=Path, help="Google Benchmark JSON files")
+    parser.add_argument("-o", "--output", type=Path, default=Path("benchmark-report.html"))
+    args = parser.parse_args()
+
+    rows = [row for path in args.results for row in read_results(path)]
+    if not rows:
+        parser.error("no search benchmark results found")
+
+    data = json.dumps(rows).replace("<", "\\u003c")
+    html = HTML.replace("__DATA__", data)
+    args.output.write_text(html, encoding="utf-8")
+    print(f"Wrote {args.output} ({len(rows)} cases)")
+
+
+HTML = """<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Search benchmark report</title>
+<style>
+  body { font: 16px system-ui, sans-serif; margin: 0; color: #18212f; background: #f6f8fb; }
+  main { max-width: 1050px; margin: auto; padding: 32px 20px; }
+  h1 { margin-bottom: 6px; }
+  p { line-height: 1.5; color: #445064; }
+  nav, .controls { display: flex; gap: 10px; flex-wrap: wrap; margin: 24px 0; }
+  button, select { font: inherit; padding: 8px 12px; border: 1px solid #bbc7d8; border-radius: 8px; background: white; }
+  button { cursor: pointer; }
+  button.active { background: #244da8; color: white; border-color: #244da8; }
+  label { display: grid; gap: 5px; font-size: 14px; }
+  section { background: white; border-radius: 12px; padding: 22px; margin: 18px 0; box-shadow: 0 1px 5px #dce2eb; }
+  .hidden { display: none; }
+  .table-wrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { text-align: left; padding: 9px; border-bottom: 1px solid #e5eaf1; }
+  th { background: #f0f4fa; }
+  svg { width: 100%; height: 350px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 16px; }
+  .legend span::before { content: '●'; color: var(--color); margin-right: 5px; }
+</style>
+<main>
+  <h1>Search benchmark report</h1>
+  <p>Median CPU nanoseconds per lookup. Lower is faster.</p>
+  <nav>
+    <button class="active" data-tab="chart">Chart</button>
+    <button data-tab="table">Table</button>
+    <button data-tab="about">How to read</button>
+  </nav>
+  <div class="controls">
+    <label>Result file<select id="build"></select></label>
+    <label>Workload<select id="workload"><option>hit</option><option>miss</option></select></label>
+  </div>
+  <section id="chart"><h2>Time by key count</h2><svg id="plot" role="img" aria-label="Lookup time by key count"></svg><div class="legend" id="legend"></div></section>
+  <section id="table" class="hidden"><h2>Measurements</h2><div class="table-wrap"><table><thead><tr><th>Engine</th><th>Keys</th><th>Median ns</th><th>Runs</th></tr></thead><tbody id="rows"></tbody></table></div></section>
+  <section id="about" class="hidden"><h2>How to read this report</h2><p>Each point is the median CPU time from the repeated runs in one JSON file. The table shows every measured run for that case. Compare engines at the same key count and workload. Build flags, CPU conditions, and query distribution affect the result. These are node-search timings, not whole-tree timings.</p></section>
+</main>
+<script>
+const data = __DATA__;
+const colors = ['#2454b5', '#c65327', '#19836d', '#8b45a1', '#b58320', '#555'];
+const build = document.querySelector('#build');
+const workload = document.querySelector('#workload');
+for (const name of [...new Set(data.map(row => row.build))]) {
+  build.add(new Option(name, name));
+}
+document.querySelectorAll('nav button').forEach(button => {
+  button.addEventListener('click', () => {
+    document.querySelectorAll('nav button').forEach(item => item.classList.toggle('active', item === button));
+    document.querySelectorAll('main section').forEach(section => section.classList.toggle('hidden', section.id !== button.dataset.tab));
+  });
+});
+function render() {
+  const rows = data.filter(row => row.build === build.value && row.workload === workload.value);
+  rows.sort((a, b) => a.size - b.size || a.engine.localeCompare(b.engine));
+  document.querySelector('#rows').innerHTML = rows.map(row =>
+    `<tr><td>${row.engine}</td><td>${row.size}</td><td>${row.median_ns.toFixed(2)}</td><td>${row.runs_ns.map(n => n.toFixed(2)).join(', ')}</td></tr>`
+  ).join('');
+
+  const sizes = [...new Set(rows.map(row => row.size))].sort((a, b) => a - b);
+  const engines = [...new Set(rows.map(row => row.engine))];
+  const max = Math.max(...rows.map(row => row.median_ns), 1);
+  const x = size => 62 + sizes.indexOf(size) * 710 / Math.max(sizes.length - 1, 1);
+  const y = value => 285 - value / max * 250;
+  const svg = ['<line x1="62" y1="285" x2="800" y2="285" stroke="#8a96a8"/>',
+               '<line x1="62" y1="30" x2="62" y2="285" stroke="#8a96a8"/>'];
+  sizes.forEach(size => svg.push(`<text x="${x(size)}" y="310" text-anchor="middle" font-size="13">${size}</text>`));
+  [0, .25, .5, .75, 1].forEach(fraction => svg.push(`<text x="54" y="${y(max * fraction) + 4}" text-anchor="end" font-size="12">${(max * fraction).toFixed(1)}</text>`));
+  engines.forEach((engine, index) => {
+    const points = rows.filter(row => row.engine === engine);
+    const color = colors[index % colors.length];
+    svg.push(`<polyline fill="none" stroke="${color}" stroke-width="2.5" points="${points.map(row => `${x(row.size)},${y(row.median_ns)}`).join(' ')}"/>`);
+    points.forEach(row => svg.push(`<circle cx="${x(row.size)}" cy="${y(row.median_ns)}" r="5" fill="${color}"><title>${engine}: ${row.median_ns.toFixed(2)} ns at ${row.size} keys</title></circle>`));
+  });
+  document.querySelector('#plot').setAttribute('viewBox', '0 0 840 340');
+  document.querySelector('#plot').innerHTML = svg.join('');
+  document.querySelector('#legend').innerHTML = engines.map((engine, index) =>
+    `<span style="--color:${colors[index % colors.length]}">${engine}</span>`).join('');
+}
+build.addEventListener('change', render);
+workload.addEventListener('change', render);
+render();
+</script>
+</html>
+"""
+
+
+if __name__ == "__main__":
+    main()

@@ -15,8 +15,8 @@ to build the playground without tests.
 ## Benchmarks
 
 The current suite compares lower-bound search engines on sorted `int` arrays.
-See [benchmarks/README.md](benchmarks/README.md) for the workload, result format,
-comparison commands, and compiler optimization experiments.
+See [benchmarks/README.md](benchmarks/README.md) for the workload, interactive
+HTML report, result comparisons, and compiler optimization experiments.
 
 Build and run all cases:
 
@@ -38,3 +38,15 @@ CMake fetches Google Benchmark v1.9.4.
   --benchmark_repetitions=5 \
   --benchmark_out=build-benchmarks/results.json --benchmark_out_format=json
 ```
+
+Turn the saved JSON into an interactive page, then open the HTML file in your
+browser:
+
+```sh
+python3 benchmarks/report.py build-benchmarks/results.json \
+  -o build-benchmarks/report.html
+```
+
+The page has a chart and a table. Select hits or misses, and switch between
+result files when you generate a report from several JSON files. The chart
+plots median CPU time per lookup against key count; lower is faster.
