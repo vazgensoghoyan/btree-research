@@ -78,8 +78,10 @@ HTML = """<!doctype html>
   th, td { text-align: left; padding: 9px; border-bottom: 1px solid #e5eaf1; }
   th { background: #f0f4fa; }
   svg { width: 100%; height: 350px; }
-  .legend { display: flex; flex-wrap: wrap; gap: 16px; }
-  .legend span::before { content: '●'; color: var(--color); margin-right: 5px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 8px; }
+  .legend button { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+  .legend button.active { background: #e7edf8; color: #18212f; border-color: #7890bd; }
+  .legend svg { width: 42px; height: 16px; }
 </style>
 <main>
   <h1>B-tree benchmark report</h1>
@@ -101,6 +103,8 @@ HTML = """<!doctype html>
 <script>
 const data = __DATA__;
 const colors = ['#2454b5', '#c65327', '#19836d', '#8b45a1', '#b58320', '#555'];
+const markers = ['circle', 'square', 'triangle', 'diamond', 'cross', 'plus'];
+const dashes = ['', '7 4', '2 3', '9 3 2 3'];
 const build = document.querySelector('#build');
 const suite = document.querySelector('#suite');
 const workload = document.querySelector('#workload');
@@ -134,13 +138,40 @@ function render() {
   engines.forEach((engine, index) => {
     const points = rows.filter(row => row.engine === engine);
     const color = colors[index % colors.length];
-    svg.push(`<polyline fill="none" stroke="${color}" stroke-width="2.5" points="${points.map(row => `${x(row.size)},${y(row.median_ns)}`).join(' ')}"/>`);
-    points.forEach(row => svg.push(`<circle cx="${x(row.size)}" cy="${y(row.median_ns)}" r="5" fill="${color}"><title>${engine}: ${row.median_ns.toFixed(2)} ns at ${row.size} keys</title></circle>`));
+    const dash = dashes[Math.floor(index / colors.length) % dashes.length];
+    svg.push(`<polyline data-engine="${engine}" fill="none" stroke="${color}" stroke-width="2.5" stroke-dasharray="${dash}" points="${points.map(row => `${x(row.size)},${y(row.median_ns)}`).join(' ')}"/>`);
+    points.forEach(row => {
+      const cx = x(row.size);
+      const cy = y(row.median_ns);
+      const marker = markers[index % markers.length];
+      let shape;
+      if (marker === 'circle') shape = `<circle cx="${cx}" cy="${cy}" r="5" fill="${color}"/>`;
+      if (marker === 'square') shape = `<rect x="${cx - 4}" y="${cy - 4}" width="8" height="8" fill="${color}"/>`;
+      if (marker === 'triangle') shape = `<path d="M ${cx} ${cy - 5} L ${cx + 5} ${cy + 4} L ${cx - 5} ${cy + 4} Z" fill="${color}"/>`;
+      if (marker === 'diamond') shape = `<path d="M ${cx} ${cy - 5} L ${cx + 5} ${cy} L ${cx} ${cy + 5} L ${cx - 5} ${cy} Z" fill="${color}"/>`;
+      if (marker === 'cross') shape = `<path d="M ${cx - 4} ${cy - 4} L ${cx + 4} ${cy + 4} M ${cx - 4} ${cy + 4} L ${cx + 4} ${cy - 4}" stroke="${color}" stroke-width="2.5"/>`;
+      if (marker === 'plus') shape = `<path d="M ${cx - 5} ${cy} L ${cx + 5} ${cy} M ${cx} ${cy - 5} L ${cx} ${cy + 5}" stroke="${color}" stroke-width="2.5"/>`;
+      svg.push(`<g data-engine="${engine}">${shape}<title>${engine}: ${row.median_ns.toFixed(2)} ns at ${row.size} keys</title></g>`);
+    });
   });
   document.querySelector('#plot').setAttribute('viewBox', '0 0 840 340');
   document.querySelector('#plot').innerHTML = svg.join('');
-  document.querySelector('#legend').innerHTML = engines.map((engine, index) =>
-    `<span style="--color:${colors[index % colors.length]}">${engine}</span>`).join('');
+  document.querySelector('#legend').innerHTML = engines.map((engine, index) => {
+    const color = colors[index % colors.length];
+    const marker = markers[index % markers.length];
+    const dash = dashes[Math.floor(index / colors.length) % dashes.length];
+    return `<button data-engine="${engine}"><svg viewBox="0 0 42 16" aria-hidden="true"><line x1="1" y1="8" x2="41" y2="8" stroke="${color}" stroke-width="2.5" stroke-dasharray="${dash}"/><circle cx="21" cy="8" r="4" fill="${color}"/></svg>${engine}</button>`;
+  }).join('');
+  document.querySelectorAll('#legend button').forEach(button => {
+    button.addEventListener('click', () => {
+      const selected = button.dataset.engine;
+      const isActive = button.classList.contains('active');
+      document.querySelectorAll('#legend button').forEach(item => item.classList.toggle('active', !isActive && item === button));
+      document.querySelectorAll('#plot [data-engine]').forEach(item => {
+        item.style.opacity = isActive || item.dataset.engine === selected ? '1' : '0.12';
+      });
+    });
+  });
 }
 build.addEventListener('change', render);
 suite.addEventListener('change', render);
