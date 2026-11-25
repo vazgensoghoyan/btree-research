@@ -74,18 +74,25 @@ private:
     // helpers
 
     void split_root_if_full();
-    void unite_root_if_low();
 
     std::size_t lower_bound_in_node(const Node& node, Key key) const;
 
+    void insert_key_into_leaf(Node& leaf, std::size_t index, Key key);
+    Key remove_key_from_leaf(Node& leaf, std::size_t index);
+
     void insert_key_at(Node& node, std::size_t index, Key key);
     void insert_in_node(Node& node, std::size_t index, Key key, std::unique_ptr<Node> right_child);
+
     void split_full_node(Node& parent, std::size_t child_index);
 
     void unite_or_rotate(Node& parent, std::size_t child_index);
     void unite_nodes(Node& parent, std::size_t key_index);
+
     void rotate_left(Node& parent, std::size_t key_index);
     void rotate_right(Node& parent, std::size_t key_index);
+
+    Key extract_max(Node& subtree);
+    Key extract_min(Node& subtree);
 
 private:
     std::unique_ptr<Node> m_root;

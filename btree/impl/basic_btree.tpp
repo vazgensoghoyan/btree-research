@@ -54,7 +54,7 @@ bool BasicBTree<Key, K, Search, OptimizationFlag>::insert_impl(Key key) {
             return false; // duplicate
         
         if (node->is_leaf) { // curr node is the needed not full leaf
-            insert_key_at(*node, index, key);
+            insert_key_into_leaf(*node, index, key);
             ++m_size;
             break;
         }
@@ -83,48 +83,52 @@ bool BasicBTree<Key, K, Search, OptimizationFlag>::insert_impl(Key key) {
 
 template <BTreeKey Key, std::size_t K, search::LowerBoundSearch<Key> Search, bool OptimizationFlag>
 bool BasicBTree<Key, K, Search, OptimizationFlag>::erase_impl(Key key) {
-    unite_root_if_low();
     Node* node = m_root.get();
 
-    std::size_t found_index = 2 * K + 1; // out of range value
-
     for (;;) {
+        // possible after merge in previous iteration
+        if (node == m_root.get() && !node->is_leaf && node->key_count == 0) {
+            m_root = std::move(node->children[0]);
+            node = m_root.get();
+        }
+
         std::size_t index = lower_bound_in_node(*node, key);
 
-        if (index < node->key_count && node->keys[index] == key) { // found
-            found_index = index;
-            break;
+        if (!(index < node->key_count && node->keys[index] == key)) { // !found
+
+            if (node->is_leaf) {
+                return false;
+            }
+
+            if (node->children[index]->is_low()) {
+                unite_or_rotate(*node, index);
+            } else {
+                node = node->children[index].get();
+            }
+
+            continue;
         }
 
         if (node->is_leaf) {
-            break;
+            remove_key_from_leaf(*node, index);
+            --m_size;
+            return true;
         }
 
-        if (node->children[index]->is_low()) {
-            unite_or_rotate(*node, index);
-            continue; // calc lower bound again (simplified for now)
+        if (!node->children[index]->is_low()) {
+            node->keys[index] = extract_max(*node->children[index]);
+            --m_size;
+            return true;
         }
 
-        node = node->children[index].get();
+        if (!node->children[index + 1]->is_low()) {
+            node->keys[index] = extract_min(*node->children[index + 1]);
+            --m_size;
+            return true;
+        }
+
+        unite_nodes(*node, index);
     }
-
-    if (found_index >= node->key_count) {
-        return false;
-    }
-
-    if (node->is_leaf) {
-        std::copy(node->keys + found_index + 1,
-                  node->keys + node->key_count,
-                  node->keys + found_index);
-        --node->key_count;
-        --m_size;
-        return true;
-    }
-
-    // TODO
-
-    --m_size;
-    return true;
 }
 
 // NODE HELPERS
@@ -162,18 +166,6 @@ void BasicBTree<Key, K, Search, OptimizationFlag>::split_root_if_full() {
 }
 
 template <BTreeKey Key, std::size_t K, search::LowerBoundSearch<Key> Search, bool OptimizationFlag>
-void BasicBTree<Key, K, Search, OptimizationFlag>::unite_root_if_low() {
-    if (m_root->is_leaf || m_root->degree() != 2) return;
-    if (!m_root->children[0]->is_low()) return;
-    if (!m_root->children[1]->is_low()) return;
-
-    // rootdeg == 2, both childs deg == K
-
-    unite_nodes(*m_root, 0);
-    m_root = std::move(m_root->children[0]);
-}
-
-template <BTreeKey Key, std::size_t K, search::LowerBoundSearch<Key> Search, bool OptimizationFlag>
 std::size_t BasicBTree<Key, K, Search, OptimizationFlag>::lower_bound_in_node(const Node& node, Key key) const {
     std::span<const Key> keys_view{node.keys, node.key_count};
     return m_search(keys_view, key);
@@ -190,6 +182,23 @@ void BasicBTree<Key, K, Search, OptimizationFlag>::insert_key_at(Node& node, std
 
     node.keys[index] = key;
     node.key_count++;
+}
+
+template <BTreeKey Key, std::size_t K, search::LowerBoundSearch<Key> Search, bool OptimizationFlag>
+void BasicBTree<Key, K, Search, OptimizationFlag>::insert_key_into_leaf(Node& leaf, std::size_t index, Key key) {
+    assert(leaf.is_leaf);
+    insert_key_at(leaf, index, key);
+}
+
+template <BTreeKey Key, std::size_t K, search::LowerBoundSearch<Key> Search, bool OptimizationFlag>
+Key BasicBTree<Key, K, Search, OptimizationFlag>::remove_key_from_leaf(Node& leaf, std::size_t index) {
+    assert(leaf.is_leaf);
+    assert(index < leaf.key_count);
+
+    const Key removed = leaf.keys[index];
+    std::copy(leaf.keys + index + 1, leaf.keys + leaf.key_count, leaf.keys + index);
+    --leaf.key_count;
+    return removed;
 }
 
 template <BTreeKey Key, std::size_t K, search::LowerBoundSearch<Key> Search, bool OptimizationFlag>
@@ -314,6 +323,39 @@ void BasicBTree<Key, K, Search, OptimizationFlag>::rotate_right(Node& parent, st
 
     parent.keys[key_index] = left.keys[left.key_count - 1];
     --left.key_count;
+}
+
+template <BTreeKey Key, std::size_t K, search::LowerBoundSearch<Key> Search, bool OptimizationFlag>
+Key BasicBTree<Key, K, Search, OptimizationFlag>::extract_max(Node& subtree) {
+    assert(!subtree.is_low());
+    Node* node = &subtree;
+
+    while (!node->is_leaf) {
+        const std::size_t last = node->key_count;
+        if (node->children[last]->is_low()) {
+            unite_or_rotate(*node, last);
+        } else {
+            node = node->children[last].get();
+        }
+    }
+
+    return remove_key_from_leaf(*node, node->key_count - 1);
+}
+
+template <BTreeKey Key, std::size_t K, search::LowerBoundSearch<Key> Search, bool OptimizationFlag>
+Key BasicBTree<Key, K, Search, OptimizationFlag>::extract_min(Node& subtree) {
+    assert(!subtree.is_low());
+    Node* node = &subtree;
+
+    while (!node->is_leaf) {
+        if (node->children[0]->is_low()) {
+            unite_or_rotate(*node, 0);
+        } else {
+            node = node->children[0].get();
+        }
+    }
+
+    return remove_key_from_leaf(*node, 0);
 }
 
 } // namespace iheay

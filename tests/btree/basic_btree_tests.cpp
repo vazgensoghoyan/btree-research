@@ -174,4 +174,77 @@ TYPED_TEST(BasicBTreeTest, MatchesSetForInterleavedInsertionsAndDeletions) {
     ExpectMatches(this->tree, expected);
 }
 
+TYPED_TEST(BasicBTreeTest, ErasesInAscendingAndDescendingOrder) {
+    for (bool ascending : {true, false}) {
+        TypeParam tree;
+        std::set<int> expected;
+        std::vector<int> keys(200);
+        std::iota(keys.begin(), keys.end(), 0);
+        InsertAll(tree, expected, keys);
+
+        if (!ascending) {
+            std::reverse(keys.begin(), keys.end());
+        }
+
+        for (int key : keys) {
+            ASSERT_TRUE(tree.erase(key)) << "ascending=" << ascending << " key=" << key;
+            expected.erase(key);
+            if (key % 17 == 0) {
+                ExpectMatches(tree, expected);
+            }
+        }
+
+        ExpectMatches(tree, expected);
+    }
+}
+
+TEST(BasicBTreeEraseTest, ErasesInternalKeyWithSpareLeftChild) {
+    iheay::BasicBTree<int, 2> tree;
+    std::set<int> expected;
+    InsertAll(tree, expected, {1, 2, 3, 0});
+
+    ASSERT_TRUE(tree.erase(2));
+    expected.erase(2);
+    ExpectMatches(tree, expected);
+}
+
+TEST(BasicBTreeEraseTest, ErasesInternalKeyWithSpareRightChild) {
+    iheay::BasicBTree<int, 2> tree;
+    std::set<int> expected;
+    InsertAll(tree, expected, {1, 2, 3, 4});
+
+    ASSERT_TRUE(tree.erase(2));
+    expected.erase(2);
+    ExpectMatches(tree, expected);
+}
+
+TEST(BasicBTreeEraseTest, ErasesInternalKeyWhenBothChildrenAreLow) {
+    iheay::BasicBTree<int, 2> tree;
+    std::set<int> expected;
+    InsertAll(tree, expected, {1, 2, 3, 4});
+
+    ASSERT_TRUE(tree.erase(4));
+    expected.erase(4);
+    ASSERT_TRUE(tree.erase(2));
+    expected.erase(2);
+    ExpectMatches(tree, expected);
+}
+
+TEST(BasicBTreeEraseTest, ContractsRootAfterMergeWhileSearchingForMissingKey) {
+    iheay::BasicBTree<int, 2> tree;
+    for (int key : {1, 2, 3, 4}) {
+        ASSERT_TRUE(tree.insert(key));
+    }
+
+    ASSERT_TRUE(tree.erase(4));
+    EXPECT_FALSE(tree.erase(0));
+    EXPECT_EQ(tree.size(), 3U);
+
+    for (int key : {1, 2, 3}) {
+        EXPECT_TRUE(tree.contains(key));
+        EXPECT_TRUE(tree.erase(key));
+    }
+    EXPECT_TRUE(tree.empty());
+}
+
 }  // namespace
