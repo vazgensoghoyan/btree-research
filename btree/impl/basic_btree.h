@@ -57,21 +57,35 @@ private:
         std::size_t key_count = 0;
         Key keys[2 * K - 1] = {};
         std::unique_ptr<Node> children[2 * K] = {nullptr};
+
+        std::size_t degree() const noexcept; // := child count (in our context)
+        bool is_full() const noexcept;
+        bool is_low() const noexcept;
     };
 
 private:
     // for CRTP contract in 'btree/btree.h'
+
     std::size_t size_impl() const noexcept;
     bool contains_impl(Key key) const;
-    bool insert_impl(Key key);
+    bool insert_impl(Key key); // false -> duplicate
+    bool erase_impl(Key key); // false -> key absent
 
     // helpers
-    static bool is_node_full(const Node& node) noexcept;
+
     void split_root_if_full();
+    void unite_root_if_low();
+
     std::size_t lower_bound_in_node(const Node& node, Key key) const;
+
     void insert_key_at(Node& node, std::size_t index, Key key);
     void insert_in_node(Node& node, std::size_t index, Key key, std::unique_ptr<Node> right_child);
     void split_full_node(Node& parent, std::size_t child_index);
+
+    void unite_or_rotate(Node& parent, std::size_t child_index);
+    void unite_nodes(Node& parent, std::size_t key_index);
+    void rotate_left(Node& parent, std::size_t key_index);
+    void rotate_right(Node& parent, std::size_t key_index);
 
 private:
     std::unique_ptr<Node> m_root;

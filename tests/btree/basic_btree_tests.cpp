@@ -114,4 +114,64 @@ TYPED_TEST(BasicBTreeTest, MatchesSetForDeterministicMixedInsertions) {
     ExpectMatches(this->tree, expected);
 }
 
+TYPED_TEST(BasicBTreeTest, ErasesKeysAndHandlesMissingKeys) {
+    std::set<int> expected;
+    InsertAll(this->tree, expected, {10, 20, 30, 40, 50});
+
+    EXPECT_FALSE(this->tree.erase(25));
+    ExpectMatches(this->tree, expected);
+
+    for (int key : {30, 10, 50, 20, 40}) {
+        ASSERT_TRUE(this->tree.erase(key)) << "key=" << key;
+        expected.erase(key);
+        ExpectMatches(this->tree, expected);
+        EXPECT_FALSE(this->tree.erase(key));
+    }
+
+    EXPECT_TRUE(this->tree.insert(7));
+    EXPECT_TRUE(this->tree.contains(7));
+}
+
+TYPED_TEST(BasicBTreeTest, MatchesSetForMixedDeletionsAcrossMultipleLevels) {
+    std::set<int> expected;
+    std::vector<int> keys(200);
+    std::iota(keys.begin(), keys.end(), 0);
+    std::mt19937 random(20261125);
+    std::shuffle(keys.begin(), keys.end(), random);
+    InsertAll(this->tree, expected, keys);
+
+    std::shuffle(keys.begin(), keys.end(), random);
+    for (int key : keys) {
+        ASSERT_TRUE(this->tree.erase(key)) << "key=" << key;
+        expected.erase(key);
+        ExpectMatches(this->tree, expected);
+    }
+}
+
+TYPED_TEST(BasicBTreeTest, MatchesSetForInterleavedInsertionsAndDeletions) {
+    std::set<int> expected;
+    std::mt19937 random(20261126);
+    std::uniform_int_distribution<int> keys(0, 199);
+    std::bernoulli_distribution insert(0.5);
+
+    for (int step = 0; step < 1500; ++step) {
+        const int key = keys(random);
+        if (insert(random)) {
+            EXPECT_EQ(this->tree.insert(key), expected.insert(key).second)
+                << "step=" << step << " key=" << key;
+        } else {
+            EXPECT_EQ(this->tree.erase(key), expected.erase(key) != 0)
+                << "step=" << step << " key=" << key;
+        }
+
+        EXPECT_EQ(this->tree.size(), expected.size()) << "step=" << step;
+        EXPECT_EQ(this->tree.contains(key), expected.contains(key)) << "step=" << step;
+        if (step % 25 == 0) {
+            ExpectMatches(this->tree, expected);
+        }
+    }
+
+    ExpectMatches(this->tree, expected);
+}
+
 }  // namespace

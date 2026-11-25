@@ -25,11 +25,15 @@ public:
     }
 
     [[nodiscard]] bool contains(Key key) const {
-        return impl().contains_impl(std::move(key));
+        return impl().contains_impl(key);
     }
 
     bool insert(Key key) {
-        return impl().insert_impl(std::move(key));
+        return impl().insert_impl(key);
+    }
+
+    bool erase(Key key) {
+        return impl().erase_impl(key);
     }
 
 private:
