@@ -12,7 +12,6 @@
 #include <set>
 #include <span>
 #include <string>
-#include <unordered_set>
 #include <vector>
 
 namespace {
@@ -78,7 +77,6 @@ int main(int argc, char** argv) {
     Register<iheay::BasicBTree<int, 16, iheay::search::BinarySearch>>("btree_k16_binary");
     Register<iheay::BasicBTree<int, 16, iheay::search::SimdSearch>>("btree_k16_simd");
     Register<std::set<int>>("std_set");
-    Register<std::unordered_set<int>>("std_unordered_set");
 
     benchmark::Initialize(&argc, argv);
     if (benchmark::ReportUnrecognizedArguments(argc, argv)) {

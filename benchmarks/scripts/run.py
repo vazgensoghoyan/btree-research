@@ -19,17 +19,15 @@ def run(command: list[str]) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--optimization", choices=("O0", "O1", "O2", "O3"),
-                        default="O3", help="optimization level (default: O3)")
-    parser.add_argument("--all-optimizations", action="store_true",
-                        help="run O0, O1, O2, and O3")
+    parser.add_argument("--optimization", choices=("O2", "O3"),
+                        help="run one optimization level (default: both O2 and O3)")
     parser.add_argument("--repetitions", type=int, default=3)
     parser.add_argument("--min-time", default="0.1s")
     args = parser.parse_args()
     if args.repetitions < 1:
         parser.error("--repetitions must be positive")
 
-    levels = ("O0", "O1", "O2", "O3") if args.all_optimizations else (args.optimization,)
+    levels = (args.optimization,) if args.optimization else ("O2", "O3")
     results = []
 
     for level in levels:

@@ -22,9 +22,11 @@ add_executable(b_tree_benchmarks src/search_benchmark.cpp)
 target_compile_features(b_tree_benchmarks PRIVATE cxx_std_20)
 target_include_directories(b_tree_benchmarks PRIVATE ${PROJECT_SOURCE_DIR})
 target_link_libraries(b_tree_benchmarks PRIVATE benchmark::benchmark)
+target_compile_options(b_tree_benchmarks PRIVATE -mavx2)
 
 add_executable(whole_tree_benchmarks src/whole_tree_benchmark.cpp)
 
 target_compile_features(whole_tree_benchmarks PRIVATE cxx_std_20)
 target_include_directories(whole_tree_benchmarks PRIVATE ${PROJECT_SOURCE_DIR})
 target_link_libraries(whole_tree_benchmarks PRIVATE benchmark::benchmark)
+target_compile_options(whole_tree_benchmarks PRIVATE -mavx2)

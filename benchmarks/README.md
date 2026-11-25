@@ -6,18 +6,18 @@ Run from the repository root:
 python3 benchmarks/scripts/run.py
 ```
 
-The script configures a Release build at `-O3`, builds both benchmark executables,
-runs every case with three repetitions, saves raw JSON in `build-bench-o3/`, and
+The script configures Release builds at `-O2` and `-O3`, builds both benchmark
+executables, runs every case with three repetitions, saves raw JSON in the
+corresponding `build-bench-o2/` and `build-bench-o3/` directories, and
 writes [results/report.html](results/report.html). Open that file directly in a browser. It is a
 standalone page, so it also works from a GitHub checkout. Commit the generated
 file when you want others to download or open the latest results. GitHub's
 repository file viewer shows HTML source; an interactive web link requires
 hosting the file, for example with GitHub Pages.
 
-Use `python3 benchmarks/scripts/run.py --all-optimizations` to run `-O0`, `-O1`, `-O2`,
-and `-O3` in separate build directories. `--optimization O2` runs one selected
-level. `--repetitions 5 --min-time 0.5s` requests longer measurements. The
-script uses the same `-DNDEBUG` setting for every optimization level.
+Use `python3 benchmarks/scripts/run.py --optimization O2` or `--optimization O3`
+to run one selected level. `--repetitions 5 --min-time 0.5s` requests longer
+measurements. The script uses the same `-DNDEBUG` setting for both levels.
 
 The report has **Node search** and **Whole-tree lookup** views. Select the
 build and hit/miss workload, then use **Chart** or **Table** to inspect median
@@ -35,15 +35,15 @@ python3 benchmarks/scripts/report.py build-bench-o3/search.json build-bench-o3/t
 on sorted `int` arrays of 4 to 128 keys. Each iteration searches for one query.
 
 **Whole-tree lookup** compares `BasicBTree<int, K, Search>` with `K` of 2, 4,
-and 16, using linear, binary, and SIMD node search, plus `std::set<int>` and
-`std::unordered_set<int>`. Each container is filled
+and 16, using linear, binary, and SIMD node search, plus `std::set<int>`.
+Each container is filled
 with the same shuffled even keys before timing. The timed operation is one
 `contains` call. Hit queries are present keys; miss queries are odd numbers.
 Tree sizes are 1,000, 10,000, and 100,000 keys.
 
-Both suites use reproducible query sequences. The current B-tree still uses its
-built-in linear node search; the SIMD engine is only in the node-search suite.
-`SimdSearch` requires AVX2 support. These measurements are specific to the
+Both suites use reproducible query sequences.
+The benchmark targets compile with `-mavx2` and require an AVX2 CPU. These
+measurements are specific to the
 machine, compiler, flags, and workload. Small differences deserve repeated runs
 under stable CPU conditions.
 

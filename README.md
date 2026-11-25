@@ -15,7 +15,7 @@ to build the playground without tests.
 ## Benchmarks
 
 The suite compares lower-bound search engines and whole-tree lookups across
-several B-tree node capacities, `std::set`, and `std::unordered_set`.
+several B-tree node capacities and `std::set`.
 See [benchmarks/README.md](benchmarks/README.md) for the workload, interactive
 HTML report, result comparisons, and compiler optimization experiments.
 
@@ -25,6 +25,5 @@ Build, run, and generate the browsable report with one command:
 python3 benchmarks/scripts/run.py
 ```
 
-Open [benchmarks/results/report.html](benchmarks/results/report.html) for the generated chart
-and table. Run `python3 benchmarks/scripts/run.py --all-optimizations` to include
-`-O0` through `-O3` builds.
+Open [benchmarks/results/report.html](benchmarks/results/report.html) for the
+generated chart and table. The runner measures both `-O2` and `-O3` by default.
