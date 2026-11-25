@@ -63,7 +63,7 @@ HTML = """<!doctype html>
 <title>B-tree benchmark report</title>
 <style>
   body { font: 16px system-ui, sans-serif; margin: 0; color: #18212f; background: #f6f8fb; }
-  main { max-width: 1050px; margin: auto; padding: 32px 20px; }
+  main { max-width: 1500px; margin: auto; padding: 32px 20px; }
   h1 { margin-bottom: 6px; }
   p { line-height: 1.5; color: #445064; }
   nav, .controls { display: flex; gap: 10px; flex-wrap: wrap; margin: 24px 0; }
@@ -77,11 +77,11 @@ HTML = """<!doctype html>
   table { border-collapse: collapse; width: 100%; }
   th, td { text-align: left; padding: 9px; border-bottom: 1px solid #e5eaf1; }
   th { background: #f0f4fa; }
-  svg { width: 100%; height: 350px; }
-  .legend { display: flex; flex-wrap: wrap; gap: 8px; }
+  #plot { width: 100%; height: min(65vw, 650px); min-height: 460px; }
+  .legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px; }
   .legend button { display: flex; align-items: center; gap: 8px; font-size: 14px; }
   .legend button.active { background: #e7edf8; color: #18212f; border-color: #7890bd; }
-  .legend svg { width: 42px; height: 16px; }
+  .legend svg { width: 42px; height: 16px; flex: none; }
 </style>
 <main>
   <h1>B-tree benchmark report</h1>
@@ -96,7 +96,7 @@ HTML = """<!doctype html>
     <label>Build<select id="build"></select></label>
     <label>Workload<select id="workload"><option>hit</option><option>miss</option></select></label>
   </div>
-  <section id="chart"><h2>Time by key count</h2><svg id="plot" role="img" aria-label="Lookup time by key count"></svg><div class="legend" id="legend"></div></section>
+  <section id="chart"><h2>Time by key count</h2><p>Click a series label to isolate it; use “Show all” to restore the chart.</p><svg id="plot" role="img" aria-label="Lookup time by key count"></svg><div class="legend" id="legend"></div></section>
   <section id="table" class="hidden"><h2>Measurements</h2><div class="table-wrap"><table><thead><tr><th>Engine</th><th>Keys</th><th>Median ns</th><th>Runs</th></tr></thead><tbody id="rows"></tbody></table></div></section>
   <section id="about" class="hidden"><h2>How to read this report</h2><p>Each point is the median CPU time from repeated runs. The table shows every measured run. Compare containers or engines at the same key count, workload, and build. Node search and whole-tree lookup are separate suites; their times measure different operations. Build flags, CPU conditions, and query distribution affect results.</p></section>
 </main>
@@ -129,32 +129,32 @@ function render() {
   const sizes = [...new Set(rows.map(row => row.size))].sort((a, b) => a - b);
   const engines = [...new Set(rows.map(row => row.engine))];
   const max = Math.max(...rows.map(row => row.median_ns), 1);
-  const x = size => 62 + sizes.indexOf(size) * 710 / Math.max(sizes.length - 1, 1);
-  const y = value => 285 - value / max * 250;
-  const svg = ['<line x1="62" y1="285" x2="800" y2="285" stroke="#8a96a8"/>',
-               '<line x1="62" y1="30" x2="62" y2="285" stroke="#8a96a8"/>'];
-  sizes.forEach(size => svg.push(`<text x="${x(size)}" y="310" text-anchor="middle" font-size="13">${size}</text>`));
-  [0, .25, .5, .75, 1].forEach(fraction => svg.push(`<text x="54" y="${y(max * fraction) + 4}" text-anchor="end" font-size="12">${(max * fraction).toFixed(1)}</text>`));
+  const x = size => 110 + sizes.indexOf(size) * 1030 / Math.max(sizes.length - 1, 1);
+  const y = value => 535 - value / max * 475;
+  const svg = ['<line x1="110" y1="535" x2="1150" y2="535" stroke="#8a96a8"/>',
+               '<line x1="110" y1="60" x2="110" y2="535" stroke="#8a96a8"/>'];
+  sizes.forEach(size => svg.push(`<text x="${x(size)}" y="565" text-anchor="middle" font-size="18">${size}</text>`));
+  [0, .25, .5, .75, 1].forEach(fraction => svg.push(`<text x="98" y="${y(max * fraction) + 6}" text-anchor="end" font-size="16">${(max * fraction).toFixed(1)}</text>`));
   engines.forEach((engine, index) => {
     const points = rows.filter(row => row.engine === engine);
     const color = colors[index % colors.length];
     const dash = dashes[Math.floor(index / colors.length) % dashes.length];
-    svg.push(`<polyline data-engine="${engine}" fill="none" stroke="${color}" stroke-width="2.5" stroke-dasharray="${dash}" points="${points.map(row => `${x(row.size)},${y(row.median_ns)}`).join(' ')}"/>`);
+    svg.push(`<polyline data-engine="${engine}" fill="none" stroke="${color}" stroke-width="4" stroke-dasharray="${dash}" points="${points.map(row => `${x(row.size)},${y(row.median_ns)}`).join(' ')}"/>`);
     points.forEach(row => {
       const cx = x(row.size);
       const cy = y(row.median_ns);
       const marker = markers[index % markers.length];
       let shape;
-      if (marker === 'circle') shape = `<circle cx="${cx}" cy="${cy}" r="5" fill="${color}"/>`;
-      if (marker === 'square') shape = `<rect x="${cx - 4}" y="${cy - 4}" width="8" height="8" fill="${color}"/>`;
-      if (marker === 'triangle') shape = `<path d="M ${cx} ${cy - 5} L ${cx + 5} ${cy + 4} L ${cx - 5} ${cy + 4} Z" fill="${color}"/>`;
-      if (marker === 'diamond') shape = `<path d="M ${cx} ${cy - 5} L ${cx + 5} ${cy} L ${cx} ${cy + 5} L ${cx - 5} ${cy} Z" fill="${color}"/>`;
-      if (marker === 'cross') shape = `<path d="M ${cx - 4} ${cy - 4} L ${cx + 4} ${cy + 4} M ${cx - 4} ${cy + 4} L ${cx + 4} ${cy - 4}" stroke="${color}" stroke-width="2.5"/>`;
-      if (marker === 'plus') shape = `<path d="M ${cx - 5} ${cy} L ${cx + 5} ${cy} M ${cx} ${cy - 5} L ${cx} ${cy + 5}" stroke="${color}" stroke-width="2.5"/>`;
+      if (marker === 'circle') shape = `<circle cx="${cx}" cy="${cy}" r="8" fill="${color}"/>`;
+      if (marker === 'square') shape = `<rect x="${cx - 7}" y="${cy - 7}" width="14" height="14" fill="${color}"/>`;
+      if (marker === 'triangle') shape = `<path d="M ${cx} ${cy - 9} L ${cx + 8} ${cy + 7} L ${cx - 8} ${cy + 7} Z" fill="${color}"/>`;
+      if (marker === 'diamond') shape = `<path d="M ${cx} ${cy - 9} L ${cx + 8} ${cy} L ${cx} ${cy + 9} L ${cx - 8} ${cy} Z" fill="${color}"/>`;
+      if (marker === 'cross') shape = `<path d="M ${cx - 7} ${cy - 7} L ${cx + 7} ${cy + 7} M ${cx - 7} ${cy + 7} L ${cx + 7} ${cy - 7}" stroke="${color}" stroke-width="4"/>`;
+      if (marker === 'plus') shape = `<path d="M ${cx - 8} ${cy} L ${cx + 8} ${cy} M ${cx} ${cy - 8} L ${cx} ${cy + 8}" stroke="${color}" stroke-width="4"/>`;
       svg.push(`<g data-engine="${engine}">${shape}<title>${engine}: ${row.median_ns.toFixed(2)} ns at ${row.size} keys</title></g>`);
     });
   });
-  document.querySelector('#plot').setAttribute('viewBox', '0 0 840 340');
+  document.querySelector('#plot').setAttribute('viewBox', '0 0 1200 600');
   document.querySelector('#plot').innerHTML = svg.join('');
   document.querySelector('#legend').innerHTML = engines.map((engine, index) => {
     const color = colors[index % colors.length];
@@ -162,7 +162,14 @@ function render() {
     const dash = dashes[Math.floor(index / colors.length) % dashes.length];
     return `<button data-engine="${engine}"><svg viewBox="0 0 42 16" aria-hidden="true"><line x1="1" y1="8" x2="41" y2="8" stroke="${color}" stroke-width="2.5" stroke-dasharray="${dash}"/><circle cx="21" cy="8" r="4" fill="${color}"/></svg>${engine}</button>`;
   }).join('');
-  document.querySelectorAll('#legend button').forEach(button => {
+  document.querySelector('#legend').insertAdjacentHTML('afterbegin', '<button id="show-all">Show all</button>');
+  document.querySelector('#show-all').addEventListener('click', () => {
+    document.querySelectorAll('#legend button').forEach(item => item.classList.remove('active'));
+    document.querySelectorAll('#plot [data-engine]').forEach(item => {
+      item.style.removeProperty('opacity');
+    });
+  });
+  document.querySelectorAll('#legend button[data-engine]').forEach(button => {
     button.addEventListener('click', () => {
       const selected = button.dataset.engine;
       const isActive = button.classList.contains('active');
