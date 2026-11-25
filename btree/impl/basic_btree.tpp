@@ -16,11 +16,6 @@ BasicBTree<Key, K, Search, OptimizationFlag>::BasicBTree()
 // CRTP CONTRACT METHODS
 
 template <BTreeKey Key, std::size_t K, search::LowerBoundSearch<Key> Search, bool OptimizationFlag>
-std::size_t BasicBTree<Key, K, Search, OptimizationFlag>::size_impl() const noexcept {
-    return m_size;
-}
-
-template <BTreeKey Key, std::size_t K, search::LowerBoundSearch<Key> Search, bool OptimizationFlag>
 bool BasicBTree<Key, K, Search, OptimizationFlag>::contains_impl(Key key) const {
     const Node* node = m_root.get();
 
@@ -131,23 +126,6 @@ bool BasicBTree<Key, K, Search, OptimizationFlag>::erase_impl(Key key) {
     }
 }
 
-// NODE HELPERS
-
-template <BTreeKey Key, std::size_t K, search::LowerBoundSearch<Key> Search, bool OptimizationFlag>
-std::size_t BasicBTree<Key, K, Search, OptimizationFlag>::Node::degree() const noexcept {
-    return key_count + 1;
-}
-
-template <BTreeKey Key, std::size_t K, search::LowerBoundSearch<Key> Search, bool OptimizationFlag>
-bool BasicBTree<Key, K, Search, OptimizationFlag>::Node::is_full() const noexcept {
-    return degree() == 2 * K;
-}
-
-template <BTreeKey Key, std::size_t K, search::LowerBoundSearch<Key> Search, bool OptimizationFlag>
-bool BasicBTree<Key, K, Search, OptimizationFlag>::Node::is_low() const noexcept {
-    return degree() == K;
-}
-
 // HELPERS
 
 template <BTreeKey Key, std::size_t K, search::LowerBoundSearch<Key> Search, bool OptimizationFlag>
@@ -172,7 +150,7 @@ std::size_t BasicBTree<Key, K, Search, OptimizationFlag>::lower_bound_in_node(co
 }
 
 template <BTreeKey Key, std::size_t K, search::LowerBoundSearch<Key> Search, bool OptimizationFlag>
-void BasicBTree<Key, K, Search, OptimizationFlag>::insert_key_at(Node& node, std::size_t index, Key key) {
+/*static*/ void BasicBTree<Key, K, Search, OptimizationFlag>::insert_key_at(Node& node, std::size_t index, Key key) noexcept {
     assert(!node.is_full());
     assert(index <= node.key_count);
 
@@ -185,13 +163,13 @@ void BasicBTree<Key, K, Search, OptimizationFlag>::insert_key_at(Node& node, std
 }
 
 template <BTreeKey Key, std::size_t K, search::LowerBoundSearch<Key> Search, bool OptimizationFlag>
-void BasicBTree<Key, K, Search, OptimizationFlag>::insert_key_into_leaf(Node& leaf, std::size_t index, Key key) {
+/*static*/ void BasicBTree<Key, K, Search, OptimizationFlag>::insert_key_into_leaf(Node& leaf, std::size_t index, Key key) noexcept {
     assert(leaf.is_leaf);
     insert_key_at(leaf, index, key);
 }
 
 template <BTreeKey Key, std::size_t K, search::LowerBoundSearch<Key> Search, bool OptimizationFlag>
-Key BasicBTree<Key, K, Search, OptimizationFlag>::remove_key_from_leaf(Node& leaf, std::size_t index) {
+/*static*/ Key BasicBTree<Key, K, Search, OptimizationFlag>::remove_key_from_leaf(Node& leaf, std::size_t index) noexcept {
     assert(leaf.is_leaf);
     assert(index < leaf.key_count);
 
@@ -202,7 +180,7 @@ Key BasicBTree<Key, K, Search, OptimizationFlag>::remove_key_from_leaf(Node& lea
 }
 
 template <BTreeKey Key, std::size_t K, search::LowerBoundSearch<Key> Search, bool OptimizationFlag>
-void BasicBTree<Key, K, Search, OptimizationFlag>::insert_in_node(Node& node, std::size_t index, Key key, std::unique_ptr<Node> right_child) {
+/*static*/ void BasicBTree<Key, K, Search, OptimizationFlag>::insert_in_node(Node& node, std::size_t index, Key key, std::unique_ptr<Node> right_child) noexcept {
     insert_key_at(node, index, key);
     std::move_backward(node.children + index + 1,
                        node.children + node.key_count,
@@ -211,7 +189,7 @@ void BasicBTree<Key, K, Search, OptimizationFlag>::insert_in_node(Node& node, st
 }
 
 template <BTreeKey Key, std::size_t K, search::LowerBoundSearch<Key> Search, bool OptimizationFlag>
-void BasicBTree<Key, K, Search, OptimizationFlag>::split_full_node(Node& parent, std::size_t child_index) {
+/*static*/ void BasicBTree<Key, K, Search, OptimizationFlag>::split_full_node(Node& parent, std::size_t child_index) {
     assert(child_index <= parent.key_count);
     assert(!parent.is_full());
 
@@ -236,7 +214,7 @@ void BasicBTree<Key, K, Search, OptimizationFlag>::split_full_node(Node& parent,
 }
 
 template <BTreeKey Key, std::size_t K, search::LowerBoundSearch<Key> Search, bool OptimizationFlag>
-void BasicBTree<Key, K, Search, OptimizationFlag>::unite_or_rotate(Node& parent, std::size_t child_index) {
+/*static*/ void BasicBTree<Key, K, Search, OptimizationFlag>::unite_or_rotate(Node& parent, std::size_t child_index) noexcept {
     if (!parent.children[child_index]->is_low()) {
         return;
     }
@@ -256,7 +234,7 @@ void BasicBTree<Key, K, Search, OptimizationFlag>::unite_or_rotate(Node& parent,
 }
 
 template <BTreeKey Key, std::size_t K, search::LowerBoundSearch<Key> Search, bool OptimizationFlag>
-void BasicBTree<Key, K, Search, OptimizationFlag>::unite_nodes(Node& parent, std::size_t key_index) {
+/*static*/ void BasicBTree<Key, K, Search, OptimizationFlag>::unite_nodes(Node& parent, std::size_t key_index) noexcept {
     assert(key_index < parent.key_count);
     assert(parent.children[key_index]->is_low());
     assert(parent.children[key_index + 1]->is_low());
@@ -280,7 +258,7 @@ void BasicBTree<Key, K, Search, OptimizationFlag>::unite_nodes(Node& parent, std
 }
 
 template <BTreeKey Key, std::size_t K, search::LowerBoundSearch<Key> Search, bool OptimizationFlag>
-void BasicBTree<Key, K, Search, OptimizationFlag>::rotate_left(Node& parent, std::size_t key_index) {
+/*static*/ void BasicBTree<Key, K, Search, OptimizationFlag>::rotate_left(Node& parent, std::size_t key_index) noexcept {
     assert(key_index < parent.key_count);
     assert(parent.children[key_index]->is_low());
     assert(!parent.children[key_index + 1]->is_low());
@@ -302,7 +280,7 @@ void BasicBTree<Key, K, Search, OptimizationFlag>::rotate_left(Node& parent, std
 }
 
 template <BTreeKey Key, std::size_t K, search::LowerBoundSearch<Key> Search, bool OptimizationFlag>
-void BasicBTree<Key, K, Search, OptimizationFlag>::rotate_right(Node& parent, std::size_t key_index) {
+/*static*/ void BasicBTree<Key, K, Search, OptimizationFlag>::rotate_right(Node& parent, std::size_t key_index) noexcept {
     assert(key_index < parent.key_count);
     assert(!parent.children[key_index]->is_low());
     assert(parent.children[key_index + 1]->is_low());
@@ -326,7 +304,7 @@ void BasicBTree<Key, K, Search, OptimizationFlag>::rotate_right(Node& parent, st
 }
 
 template <BTreeKey Key, std::size_t K, search::LowerBoundSearch<Key> Search, bool OptimizationFlag>
-Key BasicBTree<Key, K, Search, OptimizationFlag>::extract_max(Node& subtree) {
+/*static*/ Key BasicBTree<Key, K, Search, OptimizationFlag>::extract_max(Node& subtree) noexcept {
     assert(!subtree.is_low());
     Node* node = &subtree;
 
@@ -343,7 +321,7 @@ Key BasicBTree<Key, K, Search, OptimizationFlag>::extract_max(Node& subtree) {
 }
 
 template <BTreeKey Key, std::size_t K, search::LowerBoundSearch<Key> Search, bool OptimizationFlag>
-Key BasicBTree<Key, K, Search, OptimizationFlag>::extract_min(Node& subtree) {
+/*static*/ Key BasicBTree<Key, K, Search, OptimizationFlag>::extract_min(Node& subtree) noexcept {
     assert(!subtree.is_low());
     Node* node = &subtree;
 

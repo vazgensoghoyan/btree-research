@@ -58,15 +58,14 @@ private:
         Key keys[2 * K - 1] = {};
         std::unique_ptr<Node> children[2 * K] = {nullptr};
 
-        std::size_t degree() const noexcept; // := child count (in our context)
-        bool is_full() const noexcept;
-        bool is_low() const noexcept;
+        bool is_full() const noexcept { return key_count == 2 * K - 1; }
+        bool is_low() const noexcept { return key_count == K - 1; }
     };
 
 private:
     // for CRTP contract in 'btree/btree.h'
 
-    std::size_t size_impl() const noexcept;
+    std::size_t size_impl() const noexcept { return m_size; }
     bool contains_impl(Key key) const;
     bool insert_impl(Key key); // false -> duplicate
     bool erase_impl(Key key); // false -> key absent
@@ -77,22 +76,22 @@ private:
 
     std::size_t lower_bound_in_node(const Node& node, Key key) const;
 
-    void insert_key_into_leaf(Node& leaf, std::size_t index, Key key);
-    Key remove_key_from_leaf(Node& leaf, std::size_t index);
+    static void insert_key_into_leaf(Node& leaf, std::size_t index, Key key) noexcept;
+    static Key remove_key_from_leaf(Node& leaf, std::size_t index) noexcept;
 
-    void insert_key_at(Node& node, std::size_t index, Key key);
-    void insert_in_node(Node& node, std::size_t index, Key key, std::unique_ptr<Node> right_child);
+    static void insert_key_at(Node& node, std::size_t index, Key key) noexcept;
+    static void insert_in_node(Node& node, std::size_t index, Key key, std::unique_ptr<Node> right_child) noexcept;
 
-    void split_full_node(Node& parent, std::size_t child_index);
+    static void split_full_node(Node& parent, std::size_t child_index);
 
-    void unite_or_rotate(Node& parent, std::size_t child_index);
-    void unite_nodes(Node& parent, std::size_t key_index);
+    static void unite_or_rotate(Node& parent, std::size_t child_index) noexcept;
+    static void unite_nodes(Node& parent, std::size_t key_index) noexcept;
 
-    void rotate_left(Node& parent, std::size_t key_index);
-    void rotate_right(Node& parent, std::size_t key_index);
+    static void rotate_left(Node& parent, std::size_t key_index) noexcept;
+    static void rotate_right(Node& parent, std::size_t key_index) noexcept;
 
-    Key extract_max(Node& subtree);
-    Key extract_min(Node& subtree);
+    static Key extract_max(Node& subtree) noexcept;
+    static Key extract_min(Node& subtree) noexcept;
 
 private:
     std::unique_ptr<Node> m_root;
