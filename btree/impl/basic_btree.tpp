@@ -62,11 +62,15 @@ bool BasicBTree<Key, K, Search, OptimizationFlag>::insert_impl(Key key) {
         if (is_node_full(*node->children[index])) {
             split_full_node(*node, index);
 
-            if (key == node->keys[index]) {
-                return false; // duplicate
-            }
-            if (key > node->keys[index]) {
-                ++index;
+            if constexpr (OptimizationFlag) {
+                if (key == node->keys[index]) {
+                    return false; // duplicate
+                }
+                if (key > node->keys[index]) {
+                    ++index;
+                }
+            } else {
+                continue; // try again
             }
         }
 

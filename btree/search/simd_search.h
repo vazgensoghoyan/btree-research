@@ -4,10 +4,12 @@
 #include "linear_search.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <span>
+#include <bit>
+#include <type_traits>
 
 #include <immintrin.h>
-#include <type_traits>
 
 namespace iheay::search {
 
@@ -22,7 +24,6 @@ struct SimdSearch {
     }
 
 private:
-    __attribute__((target("avx2")))
     std::size_t search_avx2_int(std::span<const int> keys, int key) const {
         __m256i target_vector = _mm256_set1_epi32(key);
         __m256i key_vector;
@@ -37,7 +38,7 @@ private:
             __m256 casted_comparison = _mm256_castsi256_ps(comparison);
             int cmp_mask = _mm256_movemask_ps(casted_comparison);
 
-            lower_bound += __builtin_popcount(cmp_mask);
+            lower_bound += std::popcount(static_cast<uint32_t>(cmp_mask));
 
             if (!(cmp_mask & 0x80)) // after that all bigger
                 return lower_bound;
