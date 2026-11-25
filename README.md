@@ -14,7 +14,7 @@ to build the playground without tests.
 
 ## Benchmarks
 
-The suite compares lower-bound search engines and whole-tree lookups across
+The suite compares lower-bound search engines and whole-tree lookups and insertions across
 several B-tree node capacities and `std::set`.
 See [benchmarks/README.md](benchmarks/README.md) for the workload, interactive
 HTML report, result comparisons, and compiler optimization experiments.

@@ -3,6 +3,7 @@
 
 import argparse
 import json
+import re
 from pathlib import Path
 from statistics import median
 
@@ -26,14 +27,21 @@ def read_results(path: Path) -> list[dict]:
     rows = []
     for name, runs in grouped.items():
         parts = name.split("/")
-        if len(parts) != 3 or parts[1] not in {"hit", "miss"}:
+        if len(parts) != 3 or parts[1] not in {"hit", "miss", "insert"}:
             continue
+        size = int(parts[2])
+        capacity = re.search(r"btree_k(\d+)", parts[0])
+        flag = ("on" if parts[0].endswith("_opt_on") else "off") if capacity else None
+        if parts[1] == "insert":
+            runs = [value / size for value in runs]
         rows.append({
             "build": path.parent.name,
             "suite": suite,
             "engine": parts[0],
             "workload": parts[1],
-            "size": int(parts[2]),
+            "size": size,
+            "capacity": capacity.group(1) if capacity else None,
+            "flag": flag,
             "median_ns": median(runs),
             "runs_ns": runs,
         })
@@ -85,29 +93,54 @@ HTML = """<!doctype html>
 </style>
 <main>
   <h1>B-tree benchmark report</h1>
-  <p>Median CPU nanoseconds per lookup. Lower is faster.</p>
+  <p>Median CPU nanoseconds per operation. Lower is faster. Insertion is averaged over a batch.</p>
   <nav>
     <button class="active" data-tab="chart">Chart</button>
     <button data-tab="table">Table</button>
     <button data-tab="about">How to read</button>
   </nav>
   <div class="controls">
-    <label>Suite<select id="suite"><option value="search">Node search</option><option value="tree">Whole-tree lookup</option></select></label>
+    <label>Suite<select id="suite"><option value="search">Node search</option><option value="tree">Whole-tree operations</option></select></label>
     <label>Build<select id="build"></select></label>
-    <label>Workload<select id="workload"><option>hit</option><option>miss</option></select></label>
+    <label>Workload<select id="workload"></select></label>
+    <label>Capacity<select id="capacity"><option value="16">K = 16</option><option value="4">K = 4</option><option value="2">K = 2</option><option value="all">All capacities</option></select></label>
+    <label>Tree optimization flag<select id="flag"><option value="all">Compare off / on</option><option value="off">Off</option><option value="on">On</option></select></label>
+    <label>Time axis<select id="scale"><option value="linear">Linear</option><option value="log">Logarithmic</option></select></label>
   </div>
-  <section id="chart"><h2>Time by key count</h2><p>Click a series label to isolate it; use “Show all” to restore the chart.</p><svg id="plot" role="img" aria-label="Lookup time by key count"></svg><div class="legend" id="legend"></div></section>
+  <section id="chart"><h2>Time by key count</h2><p>Compare one capacity at a time. Solid lines: flag off; dashed lines: flag on. Click a label to highlight it; Show all restores the current selection.</p><svg id="plot" role="img" aria-label="Lookup time by key count"></svg><div class="legend" id="legend"></div></section>
   <section id="table" class="hidden"><h2>Measurements</h2><div class="table-wrap"><table><thead><tr><th>Engine</th><th>Keys</th><th>Median ns</th><th>Runs</th></tr></thead><tbody id="rows"></tbody></table></div></section>
-  <section id="about" class="hidden"><h2>How to read this report</h2><p>Each point is the median CPU time from repeated runs. The table shows every measured run. Compare containers or engines at the same key count, workload, and build. Node search and whole-tree lookup are separate suites; their times measure different operations. Build flags, CPU conditions, and query distribution affect results.</p></section>
+  <section id="about" class="hidden"><h2>How to read this report</h2><p>Each point is the median CPU time from repeated runs. The table shows every measured run. Compare containers or engines at the same key count, workload, and build. Insertion times are normalized by batch size and exclude construction and destruction of the container. Node search and whole-tree operations are separate suites. Build flags, CPU conditions, and query distribution affect results.</p></section>
 </main>
 <script>
 const data = __DATA__;
-const colors = ['#2454b5', '#c65327', '#19836d', '#8b45a1', '#b58320', '#555'];
+const colors = ['#2454b5', '#c65327', '#19836d', '#8b45a1', '#9c7200', '#555', '#b32768', '#087e99', '#6d7424', '#54382e'];
 const markers = ['circle', 'square', 'triangle', 'diamond', 'cross', 'plus'];
-const dashes = ['', '7 4', '2 3', '9 3 2 3'];
 const build = document.querySelector('#build');
 const suite = document.querySelector('#suite');
 const workload = document.querySelector('#workload');
+const capacity = document.querySelector('#capacity');
+const flag = document.querySelector('#flag');
+const scale = document.querySelector('#scale');
+function markerSvg(marker, cx, cy, color) {
+let shape;
+if (marker === 'circle') shape = `<circle cx="${cx}" cy="${cy}" r="8" fill="${color}"/>`;
+if (marker === 'square') shape = `<rect x="${cx - 7}" y="${cy - 7}" width="14" height="14" fill="${color}"/>`;
+if (marker === 'triangle') shape = `<path d="M ${cx} ${cy - 9} L ${cx + 8} ${cy + 7} L ${cx - 8} ${cy + 7} Z" fill="${color}"/>`;
+if (marker === 'diamond') shape = `<path d="M ${cx} ${cy - 9} L ${cx + 8} ${cy} L ${cx} ${cy + 9} L ${cx - 8} ${cy} Z" fill="${color}"/>`;
+if (marker === 'cross') shape = `<path d="M ${cx - 7} ${cy - 7} L ${cx + 7} ${cy + 7} M ${cx - 7} ${cy + 7} L ${cx + 7} ${cy - 7}" stroke="${color}" stroke-width="4"/>`;
+if (marker === 'plus') shape = `<path d="M ${cx - 8} ${cy} L ${cx + 8} ${cy} M ${cx} ${cy - 8} L ${cx} ${cy + 8}" stroke="${color}" stroke-width="4"/>`;
+return shape;
+}
+function labelFor(engine) {
+  return engine.replace('btree_k', 'K=').replace('_opt_off', ' · flag off').replace('_opt_on', ' · flag on').replace('_', ' · ');
+}
+function styleFor(engine) {
+  const base = engine.replace(/_opt_(on|off)$/, '');
+  const families = [...new Set(data.filter(row => row.suite === suite.value).map(row => row.engine.replace(/_opt_(on|off)$/, '')))].sort();
+  const index = families.indexOf(base);
+  return {color: colors[index % colors.length], marker: markers[index % markers.length],
+          dash: engine.endsWith('_opt_on') ? '10 6' : ''};
+}
 if (!data.some(row => row.suite === suite.value)) suite.value = data[0].suite;
 document.querySelectorAll('nav button').forEach(button => {
   button.addEventListener('click', () => {
@@ -120,7 +153,14 @@ function render() {
   const selectedBuild = build.value;
   build.replaceChildren(...builds.map(name => new Option(name, name)));
   build.value = builds.includes(selectedBuild) ? selectedBuild : builds[0];
-  const rows = data.filter(row => row.suite === suite.value && row.build === build.value && row.workload === workload.value);
+  const workloads = [...new Set(data.filter(row => row.suite === suite.value && row.build === build.value).map(row => row.workload))];
+  const selectedWorkload = workload.value;
+  workload.replaceChildren(...workloads.map(name => new Option(name, name)));
+  workload.value = workloads.includes(selectedWorkload) ? selectedWorkload : workloads[0];
+  capacity.disabled = flag.disabled = suite.value !== 'tree';
+  const rows = data.filter(row => row.suite === suite.value && row.build === build.value && row.workload === workload.value
+    && (suite.value !== 'tree' || row.capacity === null || capacity.value === 'all' || row.capacity === capacity.value)
+    && (row.flag === null || flag.value === 'all' || row.flag === flag.value));
   rows.sort((a, b) => a.size - b.size || a.engine.localeCompare(b.engine));
   document.querySelector('#rows').innerHTML = rows.map(row =>
     `<tr><td>${row.engine}</td><td>${row.size}</td><td>${row.median_ns.toFixed(2)}</td><td>${row.runs_ns.map(n => n.toFixed(2)).join(', ')}</td></tr>`
@@ -129,38 +169,38 @@ function render() {
   const sizes = [...new Set(rows.map(row => row.size))].sort((a, b) => a - b);
   const engines = [...new Set(rows.map(row => row.engine))];
   const max = Math.max(...rows.map(row => row.median_ns), 1);
-  const x = size => 110 + sizes.indexOf(size) * 1030 / Math.max(sizes.length - 1, 1);
-  const y = value => 535 - value / max * 475;
+  const minTime = Math.max(Math.min(...rows.map(row => row.median_ns)), 0.000001);
+  const lower = scale.value === 'log' ? Math.log10(minTime) - 0.08 : 0;
+  const upper = scale.value === 'log' ? Math.log10(max) + 0.08 : max * 1.05;
+  const y = value => 535 - ((scale.value === 'log' ? Math.log10(Math.max(value, 0.000001)) : value) - lower) / (upper - lower) * 475;
+  const firstSize = Math.log10(sizes[0] || 1);
+  const lastSize = Math.log10(sizes[sizes.length - 1] || 1);
+  const x = size => 110 + (Math.log10(size) - firstSize) / (lastSize - firstSize || 1) * 1030;
   const svg = ['<line x1="110" y1="535" x2="1150" y2="535" stroke="#8a96a8"/>',
                '<line x1="110" y1="60" x2="110" y2="535" stroke="#8a96a8"/>'];
   sizes.forEach(size => svg.push(`<text x="${x(size)}" y="565" text-anchor="middle" font-size="18">${size}</text>`));
-  [0, .25, .5, .75, 1].forEach(fraction => svg.push(`<text x="98" y="${y(max * fraction) + 6}" text-anchor="end" font-size="16">${(max * fraction).toFixed(1)}</text>`));
+  [0, .25, .5, .75, 1].forEach(fraction => {
+    const value = scale.value === 'log' ? 10 ** (lower + fraction * (upper - lower)) : fraction * upper;
+    const position = y(value);
+    svg.push(`<line x1="110" y1="${position}" x2="1140" y2="${position}" stroke="#e3e8ef"/><text x="98" y="${position + 6}" text-anchor="end" font-size="16">${value.toFixed(1)}</text>`);
+  });
+  svg.push('<text x="110" y="30" font-size="17">CPU ns per operation</text><text x="625" y="595" text-anchor="middle" font-size="17">Key count (logarithmic spacing)</text>');
   engines.forEach((engine, index) => {
     const points = rows.filter(row => row.engine === engine);
-    const color = colors[index % colors.length];
-    const dash = dashes[Math.floor(index / colors.length) % dashes.length];
+    const {color, marker, dash} = styleFor(engine);
     svg.push(`<polyline data-engine="${engine}" fill="none" stroke="${color}" stroke-width="4" stroke-dasharray="${dash}" points="${points.map(row => `${x(row.size)},${y(row.median_ns)}`).join(' ')}"/>`);
     points.forEach(row => {
       const cx = x(row.size);
       const cy = y(row.median_ns);
-      const marker = markers[index % markers.length];
-      let shape;
-      if (marker === 'circle') shape = `<circle cx="${cx}" cy="${cy}" r="8" fill="${color}"/>`;
-      if (marker === 'square') shape = `<rect x="${cx - 7}" y="${cy - 7}" width="14" height="14" fill="${color}"/>`;
-      if (marker === 'triangle') shape = `<path d="M ${cx} ${cy - 9} L ${cx + 8} ${cy + 7} L ${cx - 8} ${cy + 7} Z" fill="${color}"/>`;
-      if (marker === 'diamond') shape = `<path d="M ${cx} ${cy - 9} L ${cx + 8} ${cy} L ${cx} ${cy + 9} L ${cx - 8} ${cy} Z" fill="${color}"/>`;
-      if (marker === 'cross') shape = `<path d="M ${cx - 7} ${cy - 7} L ${cx + 7} ${cy + 7} M ${cx - 7} ${cy + 7} L ${cx + 7} ${cy - 7}" stroke="${color}" stroke-width="4"/>`;
-      if (marker === 'plus') shape = `<path d="M ${cx - 8} ${cy} L ${cx + 8} ${cy} M ${cx} ${cy - 8} L ${cx} ${cy + 8}" stroke="${color}" stroke-width="4"/>`;
+      const shape = markerSvg(marker, cx, cy, color);
       svg.push(`<g data-engine="${engine}">${shape}<title>${engine}: ${row.median_ns.toFixed(2)} ns at ${row.size} keys</title></g>`);
     });
   });
   document.querySelector('#plot').setAttribute('viewBox', '0 0 1200 600');
   document.querySelector('#plot').innerHTML = svg.join('');
   document.querySelector('#legend').innerHTML = engines.map((engine, index) => {
-    const color = colors[index % colors.length];
-    const marker = markers[index % markers.length];
-    const dash = dashes[Math.floor(index / colors.length) % dashes.length];
-    return `<button data-engine="${engine}"><svg viewBox="0 0 42 16" aria-hidden="true"><line x1="1" y1="8" x2="41" y2="8" stroke="${color}" stroke-width="2.5" stroke-dasharray="${dash}"/><circle cx="21" cy="8" r="4" fill="${color}"/></svg>${engine}</button>`;
+    const {color, marker, dash} = styleFor(engine);
+    return `<button data-engine="${engine}"><svg viewBox="0 0 42 16" aria-hidden="true"><line x1="1" y1="8" x2="41" y2="8" stroke="${color}" stroke-width="2.5" stroke-dasharray="${dash}"/><g transform="translate(21 8) scale(0.6)">${markerSvg(marker, 0, 0, color)}</g></svg>${labelFor(engine)}</button>`;
   }).join('');
   document.querySelector('#legend').insertAdjacentHTML('afterbegin', '<button id="show-all">Show all</button>');
   document.querySelector('#show-all').addEventListener('click', () => {
@@ -183,6 +223,9 @@ function render() {
 build.addEventListener('change', render);
 suite.addEventListener('change', render);
 workload.addEventListener('change', render);
+capacity.addEventListener('change', render);
+flag.addEventListener('change', render);
+scale.addEventListener('change', render);
 render();
 </script>
 </html>

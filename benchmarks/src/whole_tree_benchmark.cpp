@@ -51,31 +51,65 @@ void Lookup(benchmark::State& state) {
 }
 
 template <class Container>
+void Insert(benchmark::State& state) {
+    const auto count = static_cast<std::size_t>(state.range(0));
+    std::vector<int> keys(count);
+    std::iota(keys.begin(), keys.end(), 0);
+    std::mt19937 generator{0x5EED};
+    std::shuffle(keys.begin(), keys.end(), generator);
+
+    for (auto _ : state) {
+        state.PauseTiming();
+        {
+            Container container;
+            state.ResumeTiming();
+            for (int key : keys) {
+                container.insert(key);
+            }
+            benchmark::DoNotOptimize(container.size());
+            state.PauseTiming();
+        }
+        state.ResumeTiming();
+    }
+    state.SetItemsProcessed(state.iterations() * count);
+}
+
+template <class Container>
 void Register(const char* name) {
     const std::string prefix{name};
     auto* hits = benchmark::RegisterBenchmark((prefix + "/hit").c_str(),
                                                &Lookup<Container, true>);
     auto* misses = benchmark::RegisterBenchmark((prefix + "/miss").c_str(),
                                                  &Lookup<Container, false>);
+    auto* inserts = benchmark::RegisterBenchmark((prefix + "/insert").c_str(),
+                                                  &Insert<Container>);
 
     for (int count : {1'000, 10'000, 100'000}) {
         hits->Arg(count);
         misses->Arg(count);
+        inserts->Arg(count);
     }
+}
+
+template <std::size_t K, class Search>
+void RegisterTree(const char* name) {
+    const std::string prefix{name};
+    Register<iheay::BasicBTree<int, K, Search, false>>((prefix + "_opt_off").c_str());
+    Register<iheay::BasicBTree<int, K, Search, true>>((prefix + "_opt_on").c_str());
 }
 
 } // namespace
 
 int main(int argc, char** argv) {
-    Register<iheay::BasicBTree<int, 2, iheay::search::LinearSearch>>("btree_k2_linear");
-    Register<iheay::BasicBTree<int, 2, iheay::search::BinarySearch>>("btree_k2_binary");
-    Register<iheay::BasicBTree<int, 2, iheay::search::SimdSearch>>("btree_k2_simd");
-    Register<iheay::BasicBTree<int, 4, iheay::search::LinearSearch>>("btree_k4_linear");
-    Register<iheay::BasicBTree<int, 4, iheay::search::BinarySearch>>("btree_k4_binary");
-    Register<iheay::BasicBTree<int, 4, iheay::search::SimdSearch>>("btree_k4_simd");
-    Register<iheay::BasicBTree<int, 16, iheay::search::LinearSearch>>("btree_k16_linear");
-    Register<iheay::BasicBTree<int, 16, iheay::search::BinarySearch>>("btree_k16_binary");
-    Register<iheay::BasicBTree<int, 16, iheay::search::SimdSearch>>("btree_k16_simd");
+    RegisterTree<2, iheay::search::LinearSearch>("btree_k2_linear");
+    RegisterTree<2, iheay::search::BinarySearch>("btree_k2_binary");
+    RegisterTree<2, iheay::search::SimdSearch>("btree_k2_simd");
+    RegisterTree<4, iheay::search::LinearSearch>("btree_k4_linear");
+    RegisterTree<4, iheay::search::BinarySearch>("btree_k4_binary");
+    RegisterTree<4, iheay::search::SimdSearch>("btree_k4_simd");
+    RegisterTree<16, iheay::search::LinearSearch>("btree_k16_linear");
+    RegisterTree<16, iheay::search::BinarySearch>("btree_k16_binary");
+    RegisterTree<16, iheay::search::SimdSearch>("btree_k16_simd");
     Register<std::set<int>>("std_set");
 
     benchmark::Initialize(&argc, argv);
