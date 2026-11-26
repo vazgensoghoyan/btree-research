@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <numeric>
+#include <optional>
 #include <random>
 #include <set>
 #include <span>
@@ -16,7 +17,23 @@
 
 namespace {
 
-template <class Container, bool Hits>
+template <class Container>
+std::optional<int> LowerBound(const Container& container, int key) {
+    return container.lower_bound(key);
+}
+
+std::optional<int> LowerBound(const std::set<int>& container, int key) {
+    const auto found = container.lower_bound(key);
+    if (found == container.end()) {
+        return std::nullopt;
+    }
+    return *found;
+}
+
+enum class LookupOperation { Contains, LowerBound };
+
+template <class Container, bool Hits,
+          LookupOperation Operation = LookupOperation::Contains>
 void Lookup(benchmark::State& state) {
     const auto count = static_cast<std::size_t>(state.range(0));
     std::vector<int> keys(count);
@@ -45,7 +62,12 @@ void Lookup(benchmark::State& state) {
 
     std::size_t next = 0;
     for (auto _ : state) {
-        benchmark::DoNotOptimize(container.contains(queries[next]));
+        if constexpr (Operation == LookupOperation::LowerBound) {
+            auto result = LowerBound(container, queries[next]);
+            benchmark::DoNotOptimize(result);
+        } else {
+            benchmark::DoNotOptimize(container.contains(queries[next]));
+        }
         next = (next + 1) & (queries.size() - 1);
     }
 }
@@ -83,11 +105,19 @@ void Register(const char* name) {
                                                  &Lookup<Container, false>);
     auto* inserts = benchmark::RegisterBenchmark((prefix + "/insert").c_str(),
                                                   &Insert<Container>);
+    auto* lower_bound_hits = benchmark::RegisterBenchmark(
+        (prefix + "/lower_bound_hit").c_str(),
+        &Lookup<Container, true, LookupOperation::LowerBound>);
+    auto* lower_bound_misses = benchmark::RegisterBenchmark(
+        (prefix + "/lower_bound_miss").c_str(),
+        &Lookup<Container, false, LookupOperation::LowerBound>);
 
     for (int count : {1'000, 10'000, 100'000}) {
         hits->Arg(count);
         misses->Arg(count);
         inserts->Arg(count);
+        lower_bound_hits->Arg(count);
+        lower_bound_misses->Arg(count);
     }
 }
 

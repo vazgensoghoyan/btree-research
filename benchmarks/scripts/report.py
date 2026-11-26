@@ -27,7 +27,9 @@ def read_results(path: Path) -> list[dict]:
     rows = []
     for name, runs in grouped.items():
         parts = name.split("/")
-        if len(parts) != 3 or parts[1] not in {"hit", "miss", "insert"}:
+        if len(parts) != 3 or parts[1] not in {
+            "hit", "miss", "insert", "lower_bound_hit", "lower_bound_miss"
+        }:
             continue
         size = int(parts[2])
         capacity = re.search(r"btree_k(\d+)", parts[0])

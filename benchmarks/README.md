@@ -41,6 +41,13 @@ with the same shuffled even keys before timing. The timed operation is one
 `contains` call. Hit queries are present keys; miss queries are odd numbers.
 Tree sizes are 1,000, 10,000, and 100,000 keys.
 
+**lower_bound_hit** and **lower_bound_miss** use the same data and query sequences
+as the contains workloads. Hits return the queried key. Missing queries usually
+return the next stored key; a query above the maximum returns no value. The
+std::set adapter converts its iterator to an optional key, matching the B-tree's
+return type. Each timed iteration performs one lower-bound lookup and consumes
+its result. Both workloads appear in the report's Workload selector after a new run.
+
 The **insert** workload inserts shuffled unique keys into a fresh container.
 Container construction and destruction are outside timing; insertion allocations
 and node splits are included. Google Benchmark records time per batch; the report
