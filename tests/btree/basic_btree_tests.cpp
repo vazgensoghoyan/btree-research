@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <numeric>
+#include <optional>
 #include <random>
 #include <set>
 #include <vector>
@@ -50,9 +51,47 @@ void InsertAll(Tree& tree, std::set<int>& expected, const std::vector<int>& keys
     }
 }
 
+template <class Tree>
+void ExpectLowerBounds(const Tree& tree, const std::set<int>& expected, int first, int last) {
+    for (int key = first; key <= last; ++key) {
+        const auto it = expected.lower_bound(key);
+        const std::optional<int> result = it == expected.end()
+            ? std::nullopt : std::optional<int>(*it);
+        EXPECT_EQ(tree.lower_bound(key), result) << "key=" << key;
+    }
+}
+
 TYPED_TEST(BasicBTreeTest, StartsEmpty) {
     EXPECT_TRUE(this->tree.empty());
     EXPECT_EQ(this->tree.size(), 0U);
+    EXPECT_EQ(this->tree.lower_bound(0), std::nullopt);
+}
+
+TYPED_TEST(BasicBTreeTest, LowerBoundHandlesSingleKey) {
+    ASSERT_TRUE(this->tree.insert(42));
+    EXPECT_EQ(this->tree.lower_bound(41), 42);
+    EXPECT_EQ(this->tree.lower_bound(42), 42);
+    EXPECT_EQ(this->tree.lower_bound(43), std::nullopt);
+}
+
+TYPED_TEST(BasicBTreeTest, LowerBoundMatchesSetAcrossMultipleLevels) {
+    std::set<int> expected;
+    std::vector<int> keys(200);
+    std::iota(keys.begin(), keys.end(), 0);
+    for (int& key : keys) key = key * 2 - 100;
+    std::mt19937 random(20261126);
+    std::shuffle(keys.begin(), keys.end(), random);
+    InsertAll(this->tree, expected, keys);
+
+    const TypeParam& tree = this->tree;
+    ExpectLowerBounds(tree, expected, -102, 300);
+
+    std::shuffle(keys.begin(), keys.end(), random);
+    for (int i = 0; i < 100; ++i) {
+        ASSERT_TRUE(this->tree.erase(keys[i]));
+        expected.erase(keys[i]);
+    }
+    ExpectLowerBounds(tree, expected, -102, 300);
 }
 
 TYPED_TEST(BasicBTreeTest, InsertsOneKey) {

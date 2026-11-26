@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <type_traits>
 #include <utility>
+#include <optional>
 
 namespace iheay {
 
@@ -26,6 +27,10 @@ public:
 
     [[nodiscard]] bool contains(Key key) const {
         return impl().contains_impl(key);
+    }
+
+    [[nodiscard]] std::optional<Key> lower_bound(Key key) const {
+        return impl().lower_bound_impl(key);
     }
 
     bool insert(Key key) {

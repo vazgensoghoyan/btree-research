@@ -25,7 +25,7 @@ struct SimdSearch {
 
 private:
     std::size_t search_avx2_int(std::span<const int> keys, int key) const {
-        __m256i target_vector = _mm256_set1_epi32(key);
+        const __m256i target_vector = _mm256_set1_epi32(key);
         __m256i key_vector;
 
         std::size_t lower_bound = 0;
@@ -34,9 +34,9 @@ private:
         for (; i + 7 < keys.size(); i += 8) {
             key_vector = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(&keys[i]));
 
-            __m256i comparison = _mm256_cmpgt_epi32(target_vector, key_vector);
-            __m256 casted_comparison = _mm256_castsi256_ps(comparison);
-            int cmp_mask = _mm256_movemask_ps(casted_comparison);
+            const __m256i comparison = _mm256_cmpgt_epi32(target_vector, key_vector);
+            const __m256 casted_comparison = _mm256_castsi256_ps(comparison);
+            const int cmp_mask = _mm256_movemask_ps(casted_comparison);
 
             lower_bound += std::popcount(static_cast<uint32_t>(cmp_mask));
 

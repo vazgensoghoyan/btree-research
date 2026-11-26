@@ -22,8 +22,7 @@ bool BasicBTree<Key, K, Search, OptimizationFlag>::contains_impl(Key key) const 
     for (;;) {
         std::size_t index = lower_bound_in_node(*node, key);
 
-        if (index < node->key_count &&
-            node->keys[index] == key)
+        if (index < node->key_count && node->keys[index] == key)
             return true;
 
         if (node->is_leaf)
@@ -34,6 +33,33 @@ bool BasicBTree<Key, K, Search, OptimizationFlag>::contains_impl(Key key) const 
     }
 
     return false;
+}
+
+template <BTreeKey Key, std::size_t K, search::LowerBoundSearch<Key> Search, bool OptimizationFlag>
+std::optional<Key> BasicBTree<Key, K, Search, OptimizationFlag>::lower_bound_impl(Key key) const {
+    const Node* node = m_root.get();
+    std::optional<Key> lower = std::nullopt;
+
+    for (;;) {
+        std::size_t index = lower_bound_in_node(*node, key);
+
+        if (index < node->key_count) {
+            Key value = node->keys[index];
+
+            if (value == key)
+                return key;
+
+            if (!lower.has_value() || value < lower.value())
+                lower = value;
+        }
+
+        if (node->is_leaf)
+            break;
+
+        node = node->children[index].get();
+    }
+
+    return lower;
 }
 
 template <BTreeKey Key, std::size_t K, search::LowerBoundSearch<Key> Search, bool OptimizationFlag>

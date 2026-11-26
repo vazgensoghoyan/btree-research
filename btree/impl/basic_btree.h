@@ -9,6 +9,7 @@
 #include <functional>
 #include <memory>
 #include <span>
+#include <optional>
 
 namespace iheay {
 
@@ -67,6 +68,7 @@ private:
 
     std::size_t size_impl() const noexcept { return m_size; }
     bool contains_impl(Key key) const;
+    std::optional<Key> lower_bound_impl(Key key) const;
     bool insert_impl(Key key); // false -> duplicate
     bool erase_impl(Key key); // false -> key absent
 
